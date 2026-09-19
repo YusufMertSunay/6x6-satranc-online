@@ -249,8 +249,13 @@
       else blackMs = Math.max(0, state.blackClockMs - elapsed);
     }
 
-    const myEl = myColor === 'white' ? $('bottomClock') : $('topClock');
-    const oppEl = myColor === 'white' ? $('topClock') : $('bottomClock');
+    // Yerleşim her zaman sabit: alt kutu HER ZAMAN "ben", üst kutu HER ZAMAN
+    // "rakip" (renderPlayerNames() ile aynı kural) — bu, renge göre
+    // DEĞİŞMEMELİ. (Daha önce burada renge göre de seçim yapılıyordu, bu da
+    // siyah oyuncu için isim ile saat değerinin ters kutulara yazılmasına
+    // (bir tür "çapraz kablolama" hatasına) yol açıyordu.)
+    const myEl = $('bottomClock');
+    const oppEl = $('topClock');
     const myMs = myColor === 'white' ? whiteMs : blackMs;
     const oppMs = myColor === 'white' ? blackMs : whiteMs;
 
