@@ -333,8 +333,32 @@
     $('evalBarBlack').style.height = (100 - whitePercent) + '%';
   }
 
+  // Motor PV'yi UCI olarak veriyor (ör. "e2e4"); bu, gerçek notasyona (SAN)
+  // çevrilemediği (sunucu hatası vb.) NADİR bir durumda kullanılan YEDEK
+  // gösterim. Normalde PV, sunucu tarafında lib/notation.js ile gerçek
+  // satranç notasyonuna (Nf3, exd5, O-O, Qh5+ gibi) çevrilip result.sanPv
+  // olarak geliyor — bkz. formatSanPv.
   function formatUciMoveList(pv) {
     return pv.map(m => m.slice(0, 2) + '-' + m.slice(2, 4) + (m.length > 4 ? '=' + m.slice(4).toUpperCase() : '')).join('  ');
+  }
+
+  // Gerçek notasyona çevrilmiş PV'yi ("Nf3","Bd6","O-O" gibi), oyundaki
+  // hamle listesiyle aynı standartta hamle numaralarıyla birlikte
+  // biçimlendirir (ör. "16.Nf3 Bd6 17.O-O Re8").
+  function formatSanPv(sanPv, whiteToMoveStart, fullmoveStart) {
+    const tokens = [];
+    let isWhite = whiteToMoveStart;
+    let num = fullmoveStart;
+    sanPv.forEach((san, idx) => {
+      if (isWhite) {
+        tokens.push(num + '.' + san);
+      } else {
+        tokens.push((idx === 0 ? num + '...' : '') + san);
+        num++;
+      }
+      isWhite = !isWhite;
+    });
+    return tokens.join(' ');
   }
 
   function renderEvalNeutral(text) {
@@ -385,7 +409,18 @@
 
     $('evalLabel').textContent = 'Değerlendirme: ' + labelText;
     setEvalBarPercent(whitePercent);
-    $('pvBox').textContent = result.pv && result.pv.length ? formatUciMoveList(result.pv) : (result.bestMove ? formatUciMoveList([result.bestMove]) : '-');
+
+    if (result.sanPv && result.sanPv.length) {
+      const fullmoveStart = parseInt((data.fen.split(' ')[5] || '1'), 10) || 1;
+      $('pvBox').textContent = formatSanPv(result.sanPv, whiteToMove, fullmoveStart);
+    } else if (result.pv && result.pv.length) {
+      // Sunucu SAN üretemediyse (nadir bir durum) UCI biçimine düşüyoruz.
+      $('pvBox').textContent = formatUciMoveList(result.pv);
+    } else if (result.bestMove) {
+      $('pvBox').textContent = formatUciMoveList([result.bestMove]);
+    } else {
+      $('pvBox').textContent = '-';
+    }
 
     bestMoveHighlight = result.bestMove ? { from: result.bestMove.slice(0, 2), to: result.bestMove.slice(2, 4) } : null;
     renderBoard();

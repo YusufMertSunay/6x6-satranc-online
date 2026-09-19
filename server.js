@@ -20,6 +20,7 @@ const { hashPassword, verifyPassword, SessionManager, parseCookies } = require('
 const { EventHub } = require('./lib/events');
 const { GameManager, START_FEN } = require('./lib/gameManager');
 const { isInsufficientMaterial } = require('./lib/rules');
+const { moveToSan } = require('./lib/notation');
 
 const PORT = process.env.PORT || 3000;
 const ENGINE_PATH = path.join(__dirname, 'engine', 'fairy-stockfish');
@@ -30,6 +31,12 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // CPU'sunu paylaşıyor — çok uzun bir "düşünme süresi" analiz isteyen bir
 // kullanıcı varken diğer kullanıcıların canlı oyunlarını yavaşlatabilir.
 const ANALYSIS_MOVETIME_MS = 1200;
+// Motorun önerdiği varyant (PV) bazen çok uzun olabiliyor (20-30 yarı hamle);
+// bunların HER BİRİNİ gerçek notasyona (SAN) çevirmek için motora ekstra
+// sorular sormamız gerekiyor (bkz. pvToSan) — hem gösterimi okunaksız
+// yapmamak hem de sunucuyu gereksiz yere meşgul etmemek için sadece ilk
+// birkaç hamleyi çeviriyoruz.
+const MAX_PV_SAN_PLIES = 10;
 
 const store = new Store();
 const sessions = new SessionManager();
@@ -133,6 +140,50 @@ function getFinishedGameForUser(gameId, userId) {
     };
   }
   return null;
+}
+
+// Motorun UCI formatındaki önerilen varyantını (ör. ["e2e4","e7e5","g1f3"])
+// GERÇEK satranç notasyonuna (ör. ["e4","e5","Nf3"]) çevirir — hamle
+// listesindeki gösterimle (lib/notation.js) BİREBİR AYNI mantık. Motora
+// İKİNCİ bir kural motoru olarak sormuyoruz; sadece her ara pozisyonun
+// FEN'ini ve o pozisyondaki yasal hamleleri (belirsizlik giderme ve
+// şah/mat işareti için) soruyoruz — hamlelerin kendisini zaten motor önerdi.
+async function pvToSan(fenBeforeFirstMove, pvUciMoves) {
+  const sanList = [];
+  let fen = fenBeforeFirstMove;
+  const limited = pvUciMoves.slice(0, MAX_PV_SAN_PLIES);
+  let legalAtCurrent;
+  try {
+    legalAtCurrent = await analysisEngine.getLegalMoves(fen);
+  } catch {
+    return sanList; // motor cevap veremezse boş liste dön — istemci UCI'ya düşer
+  }
+  for (const uciMove of limited) {
+    let sanBody;
+    try {
+      sanBody = moveToSan(fen, uciMove, legalAtCurrent);
+    } catch {
+      break;
+    }
+    let nextFen;
+    try {
+      nextFen = await analysisEngine.getFenAfterMoves(fen, [uciMove]);
+    } catch {
+      nextFen = null;
+    }
+    if (!nextFen) { sanList.push(sanBody); break; }
+    let legalAtNext = [];
+    let inCheck = false;
+    try {
+      legalAtNext = await analysisEngine.getLegalMoves(nextFen);
+      inCheck = await analysisEngine.isInCheck(nextFen);
+    } catch { /* şah/mat işaretini atlayıp devam edelim */ }
+    const suffix = inCheck ? (legalAtNext.length === 0 ? '#' : '+') : '';
+    sanList.push(sanBody + suffix);
+    fen = nextFen;
+    legalAtCurrent = legalAtNext;
+  }
+  return sanList;
 }
 
 async function handleApi(req, res, pathname, url) {
@@ -362,6 +413,15 @@ async function handleApi(req, res, pathname, url) {
         }
 
         const result = await analysisEngine.analyze(fen, ANALYSIS_MOVETIME_MS);
+        // PV'yi (motorun önerdiği varyant) UCI yerine GERÇEK satranç
+        // notasyonuyla (SAN — ör. "Nf3", "O-O", "exd5") göstermek için
+        // ayrıca çeviriyoruz (kullanıcının isteği: "rok O-O olarak görünsün"
+        // ile aynı notasyon PV için de geçerli olsun).
+        let sanPv = [];
+        if (result && result.pv && result.pv.length) {
+          try { sanPv = await pvToSan(fen, result.pv); } catch { sanPv = []; }
+        }
+        if (result) result.sanPv = sanPv;
         return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
