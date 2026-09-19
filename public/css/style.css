@@ -218,7 +218,7 @@ input:focus { outline: 2px solid var(--accent); }
   background: var(--bg-panel);
   border-radius: 8px;
   padding: 10px 16px;
-  min-width: 420px;
+  min-width: 552px;
 }
 
 .player-strip .name { font-weight: 600; }
@@ -235,19 +235,19 @@ input:focus { outline: 2px solid var(--accent); }
 
 #board {
   display: grid;
-  grid-template-columns: repeat(6, 70px);
-  grid-template-rows: repeat(6, 70px);
+  grid-template-columns: repeat(6, 92px);
+  grid-template-rows: repeat(6, 92px);
   border: 3px solid var(--border);
   width: fit-content;
 }
 
 .square {
-  width: 70px;
-  height: 70px;
+  width: 92px;
+  height: 92px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 46px;
+  font-size: 68px;
   line-height: 1;
   user-select: none;
   cursor: pointer;
