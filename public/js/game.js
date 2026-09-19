@@ -359,6 +359,31 @@
     banner.classList.toggle('hidden', !showIt);
   }
 
+  // Oyun bittikten sonra: rakip yeni oyun teklif ettiyse kabul/reddet
+  // kutusunu, etmediyse (ve ben de teklif etmediysem) "Yeni Oyun Teklif Et"
+  // butonunu göster.
+  function renderRematchUI() {
+    const incomingBanner = $('rematchOfferBanner');
+    const actionRow = $('rematchActionRow');
+    const offerBtn = $('offerRematchBtn');
+
+    if (state.status !== 'finished') {
+      incomingBanner.classList.add('hidden');
+      actionRow.classList.add('hidden');
+      return;
+    }
+
+    const opponentOffered = state.rematchOfferBy && state.rematchOfferBy !== myColor;
+    incomingBanner.classList.toggle('hidden', !opponentOffered);
+
+    actionRow.classList.toggle('hidden', opponentOffered);
+    if (!opponentOffered) {
+      const iOffered = !!state.rematchOfferBy && state.rematchOfferBy === myColor;
+      offerBtn.disabled = iOffered;
+      offerBtn.textContent = iOffered ? 'Teklif gönderildi, rakip bekleniyor...' : 'Yeni Oyun Teklif Et';
+    }
+  }
+
   function renderPlayerNames() {
     const myName = myColor === 'white' ? state.whiteUsername : state.blackUsername;
     const oppName = myColor === 'white' ? state.blackUsername : state.whiteUsername;
@@ -378,6 +403,7 @@
     renderMoves();
     renderGameOverBanner();
     renderDrawOfferBanner();
+    renderRematchUI();
     renderActionButtons();
     tickClocks();
   }
@@ -422,6 +448,32 @@
     } catch (err) { alert(err.message); }
   });
 
+  $('offerRematchBtn').addEventListener('click', async () => {
+    try {
+      const { state: newState } = await api('POST', `/api/game/${gameId}/offer-rematch`);
+      mergeState(newState);
+      renderAll();
+    } catch (err) { alert(err.message); }
+  });
+
+  $('acceptRematchBtn').addEventListener('click', async () => {
+    try {
+      const { state: newState } = await api('POST', `/api/game/${gameId}/respond-rematch`, { accept: true });
+      mergeState(newState);
+      renderAll();
+      // Kabul edilince sunucu yeni oyunu başlatıp 'match_found' olayını
+      // gönderecek — yönlendirme o olay geldiğinde yapılıyor.
+    } catch (err) { alert(err.message); }
+  });
+
+  $('declineRematchBtn').addEventListener('click', async () => {
+    try {
+      const { state: newState } = await api('POST', `/api/game/${gameId}/respond-rematch`, { accept: false });
+      mergeState(newState);
+      renderAll();
+    } catch (err) { alert(err.message); }
+  });
+
   // ---------------- SSE ----------------
 
   function connectSse() {
@@ -456,6 +508,21 @@
       await reloadState();
       renderAll();
     });
+    sse.addEventListener('rematch_offered', async () => {
+      await reloadState();
+      renderAll();
+    });
+    sse.addEventListener('rematch_declined', async () => {
+      await reloadState();
+      renderAll();
+    });
+    // Revanş kabul edildiğinde sunucu yeni bir oyun oluşturup her iki tarafa
+    // da 'match_found' gönderiyor (lobideki eşleştirmeyle aynı olay) —
+    // burada da onu dinleyip yeni oyunun sayfasına geçiyoruz.
+    sse.addEventListener('match_found', (e) => {
+      const data = JSON.parse(e.data);
+      window.location.href = '/game.html?id=' + data.gameId;
+    });
   }
 
   async function reloadState() {
@@ -484,6 +551,7 @@
         state.status = 'finished';
         if (state.turnStartedAt === undefined) state.turnStartedAt = Date.now();
         if (state.drawOfferBy === undefined) state.drawOfferBy = null;
+        if (state.rematchOfferBy === undefined) state.rematchOfferBy = null;
       }
     } catch (err) {
       setStatusMessage('Oyun yüklenemedi: ' + err.message, true);

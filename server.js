@@ -253,6 +253,17 @@ async function handleApi(req, res, pathname, url) {
       try { return sendJson(res, 200, { state: gameManager.respondDraw(gameId, user.id, !!accept) }); }
       catch (err) { return sendJson(res, 400, { error: err.message }); }
     }
+
+    if (sub === '/offer-rematch' && req.method === 'POST') {
+      try { return sendJson(res, 200, { state: gameManager.offerRematch(gameId, user.id) }); }
+      catch (err) { return sendJson(res, 400, { error: err.message }); }
+    }
+
+    if (sub === '/respond-rematch' && req.method === 'POST') {
+      const { accept } = await readBody(req);
+      try { return sendJson(res, 200, { state: gameManager.respondRematch(gameId, user.id, !!accept) }); }
+      catch (err) { return sendJson(res, 400, { error: err.message }); }
+    }
   }
 
   return sendJson(res, 404, { error: 'Bulunamadı.' });
