@@ -363,6 +363,8 @@
     const actionRow = $('rematchActionRow');
     const offerBtn = $('offerRematchBtn');
 
+    $('analysisActionRow').classList.toggle('hidden', state.status !== 'finished');
+
     if (state.status !== 'finished') {
       incomingBanner.classList.add('hidden');
       actionRow.classList.add('hidden');
@@ -460,6 +462,10 @@
       // Kabul edilince sunucu yeni oyunu başlatıp 'match_found' olayını
       // gönderecek — yönlendirme o olay geldiğinde yapılıyor.
     } catch (err) { alert(err.message); }
+  });
+
+  $('openAnalysisBtn').addEventListener('click', () => {
+    window.location.href = '/analysis.html?id=' + gameId;
   });
 
   $('declineRematchBtn').addEventListener('click', async () => {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Oyun · 6x6 Satranç Online</title>
+<title>Analiz Tahtası · 6x6 Satranç Online</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -20,14 +20,18 @@
   <div class="board-column">
     <div class="player-strip" id="topStrip">
       <span class="name" id="topName">-</span>
-      <span class="clock" id="topClock">--:--</span>
     </div>
 
-    <div id="board"></div>
+    <div class="analysis-board-row">
+      <div id="board"></div>
+      <div class="eval-bar-container" id="evalBarContainer">
+        <div class="eval-bar-black" id="evalBarBlack"></div>
+        <div class="eval-bar-white" id="evalBarWhite"></div>
+      </div>
+    </div>
 
     <div class="player-strip" id="bottomStrip">
       <span class="name" id="bottomName">-</span>
-      <span class="clock" id="bottomClock">--:--</span>
     </div>
 
     <div class="board-color-settings" id="boardColorSettings">
@@ -41,45 +45,32 @@
       </div>
       <button class="secondary" type="button" id="resetBoardColorsBtn">Varsayılana Dön</button>
     </div>
+
+    <div class="action-row">
+      <button class="secondary" id="navStartBtn" type="button" title="Başa dön">|&lt; Başa</button>
+      <button class="secondary" id="navBackBtn" type="button" title="Bir hamle geri">&lt; Geri</button>
+      <button class="secondary" id="navForwardBtn" type="button" title="Bir hamle ileri">İleri &gt;</button>
+      <button class="secondary" id="navEndBtn" type="button" title="Oyunun sonuna git">Sona &gt;|</button>
+      <button class="secondary" id="flipBoardBtn" type="button">Tahtayı Çevir</button>
+    </div>
   </div>
 
   <div class="side-panel">
     <div class="status-box" id="statusBox">Yükleniyor...</div>
 
-    <div class="hidden" id="gameOverBanner" class="game-over-banner"></div>
+    <div class="eval-label" id="evalLabel">Değerlendirme: -</div>
 
-    <div class="hidden draw-offer-banner" id="drawOfferBanner">
-      <span>Rakibin beraberlik teklif etti.</span>
-      <div style="display:flex; gap:6px">
-        <button class="primary" id="acceptDrawBtn">Kabul Et</button>
-        <button class="secondary" id="declineDrawBtn">Reddet</button>
-      </div>
+    <div>
+      <div class="hint-text" style="margin-bottom:4px">Oyunun hamleleri (tıklayınca o ana gider):</div>
+      <div class="moves-box" id="movesBox"></div>
     </div>
 
-    <div class="hidden draw-offer-banner" id="rematchOfferBanner">
-      <span>Rakibin yeni oyun teklif etti.</span>
-      <div style="display:flex; gap:6px">
-        <button class="primary" id="acceptRematchBtn">Kabul Et</button>
-        <button class="secondary" id="declineRematchBtn">Reddet</button>
-      </div>
+    <div>
+      <div class="hint-text" style="margin-bottom:4px">Motorun önerdiği varyant (PV):</div>
+      <div class="pv-box" id="pvBox">-</div>
     </div>
 
-    <div class="hidden action-row" id="rematchActionRow">
-      <button class="primary" id="offerRematchBtn">Yeni Oyun Teklif Et</button>
-    </div>
-
-    <div class="hidden action-row" id="analysisActionRow">
-      <button class="secondary" id="openAnalysisBtn" type="button">Analiz Tahtasını Aç</button>
-    </div>
-
-    <div class="moves-box" id="movesBox"></div>
-
-    <div class="action-row">
-      <button class="secondary" id="offerDrawBtn">Beraberlik Teklif Et</button>
-      <button class="danger" id="resignBtn">Teslim Ol</button>
-    </div>
-
-    <a href="/" class="hint-text" style="text-align:center">← Lobiye dön</a>
+    <a id="backLink" href="/" class="hint-text" style="text-align:center">← Oyuna dön</a>
   </div>
 </div>
 
@@ -90,6 +81,6 @@
   </div>
 </div>
 
-<script src="/js/game.js"></script>
+<script src="/js/analysis.js"></script>
 </body>
 </html>

@@ -19,16 +19,27 @@ const { Store } = require('./lib/store');
 const { hashPassword, verifyPassword, SessionManager, parseCookies } = require('./lib/auth');
 const { EventHub } = require('./lib/events');
 const { GameManager, START_FEN } = require('./lib/gameManager');
+const { isInsufficientMaterial } = require('./lib/rules');
 
 const PORT = process.env.PORT || 3000;
 const ENGINE_PATH = path.join(__dirname, 'engine', 'fairy-stockfish');
 const VARIANTS_PATH = path.join(__dirname, 'engine', 'variants.ini');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// Oyun sonrası analiz tahtasının motoru bekleteceği süre (ms). Kısa tutuluyor
+// çünkü bu, CANLI OYUN motorundan AYRI bir süreç olsa da, aynı sunucunun
+// CPU'sunu paylaşıyor — çok uzun bir "düşünme süresi" analiz isteyen bir
+// kullanıcı varken diğer kullanıcıların canlı oyunlarını yavaşlatabilir.
+const ANALYSIS_MOVETIME_MS = 1200;
 
 const store = new Store();
 const sessions = new SessionManager();
 const hub = new EventHub();
 const engine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
+// Analiz için tamamen AYRI bir motor süreci: canlı oyunlardaki hamle
+// yasallığı kontrolleri hiçbir zaman bir analiz isteğinin arkasında
+// beklemesin diye (aksi halde tek bir paylaşılan motor kuyruğu, biri analiz
+// yaparken diğer oyuncuların hamlelerini geciktirirdi).
+const analysisEngine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
 let gameManager = null;
 
 function sendJson(res, status, obj) {
@@ -91,6 +102,37 @@ function serveStatic(req, res, pathname) {
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
     res.end(data);
   });
+}
+
+// Analiz tahtası SADECE bitmiş bir oyun üzerinde çalışır (canlı oyun sırasında
+// motor erişimi YASAK ilkesiyle tutarlı) VE sadece o oyunun oyuncularından
+// biri erişebilir. Oyun hâlâ bellekte (gameManager) olabilir ya da 5 dakikalık
+// pencere geçip diske (store) yazılmış olabilir — ikisini de kontrol ediyoruz.
+function getFinishedGameForUser(gameId, userId) {
+  const live = gameManager.getGame(gameId);
+  if (live) {
+    if (live.status !== 'finished') return null;
+    if (live.whiteId !== userId && live.blackId !== userId) return null;
+    return {
+      startFen: live.startFen,
+      movesUci: live.movesUci,
+      sanMoves: live.sanMoves,
+      whiteId: live.whiteId,
+      blackId: live.blackId,
+    };
+  }
+  const persisted = store.getGame(gameId);
+  if (persisted) {
+    if (persisted.whiteId !== userId && persisted.blackId !== userId) return null;
+    return {
+      startFen: persisted.startFen,
+      movesUci: persisted.movesUci,
+      sanMoves: persisted.sanMoves,
+      whiteId: persisted.whiteId,
+      blackId: persisted.blackId,
+    };
+  }
+  return null;
 }
 
 async function handleApi(req, res, pathname, url) {
@@ -264,6 +306,67 @@ async function handleApi(req, res, pathname, url) {
       try { return sendJson(res, 200, { state: gameManager.respondRematch(gameId, user.id, !!accept) }); }
       catch (err) { return sendJson(res, 400, { error: err.message }); }
     }
+
+    // ---- Oyun sonrası analiz tahtası ----
+    // Not: bu üçü SADECE bitmiş bir oyunun oyuncularına açık (yukarıdaki
+    // getFinishedGameForUser) ve CANLI OYUN motorundan (const engine) tamamen
+    // ayrı bir motor süreci (analysisEngine) kullanıyor.
+
+    if (sub === '/analysis-start' && req.method === 'GET') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz (oyun bitmemiş olabilir ya da bu oyunun oyuncusu değilsin).' });
+      const whiteUser = store.getUserById(info.whiteId);
+      const blackUser = store.getUserById(info.blackId);
+      return sendJson(res, 200, {
+        startFen: info.startFen,
+        movesUci: info.movesUci,
+        sanMoves: info.sanMoves,
+        whiteId: info.whiteId,
+        blackId: info.blackId,
+        whiteUsername: whiteUser?.username || '?',
+        blackUsername: blackUser?.username || '?',
+      });
+    }
+
+    if (sub === '/analysis-position' && req.method === 'POST') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz.' });
+      const { moves } = await readBody(req);
+      const moveList = Array.isArray(moves) ? moves : [];
+      try {
+        const fen = await analysisEngine.getFenAfterMoves(info.startFen, moveList);
+        if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+        const legalMoves = await analysisEngine.getLegalMoves(fen);
+        return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w ') });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    if (sub === '/analysis-evaluate' && req.method === 'POST') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz.' });
+      const { moves } = await readBody(req);
+      const moveList = Array.isArray(moves) ? moves : [];
+      try {
+        const fen = await analysisEngine.getFenAfterMoves(info.startFen, moveList);
+        if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+        const whiteToMove = fen.includes(' w ');
+        const legalMoves = await analysisEngine.getLegalMoves(fen);
+
+        if (legalMoves.length === 0) {
+          return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: true, insufficientMaterial: false, result: null });
+        }
+        if (isInsufficientMaterial(fen)) {
+          return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: true, result: null });
+        }
+
+        const result = await analysisEngine.analyze(fen, ANALYSIS_MOVETIME_MS);
+        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
   }
 
   return sendJson(res, 404, { error: 'Bulunamadı.' });
@@ -293,6 +396,10 @@ async function main() {
   if (!checkFen) throw new Error('Motor başlangıç pozisyonunu doğrulayamadı — variants.ini yolunu kontrol et.');
   console.log('Doğrulandı:', checkFen);
 
+  console.log('Analiz motoru başlatılıyor...');
+  await analysisEngine.start();
+  console.log('Analiz motoru hazır.');
+
   gameManager = new GameManager(engine, store, hub);
 
   server.listen(PORT, () => {
@@ -305,5 +412,5 @@ main().catch(err => {
   process.exit(1);
 });
 
-process.on('SIGINT', () => { engine.quit(); process.exit(0); });
-process.on('SIGTERM', () => { engine.quit(); process.exit(0); });
+process.on('SIGINT', () => { engine.quit(); analysisEngine.quit(); process.exit(0); });
+process.on('SIGTERM', () => { engine.quit(); analysisEngine.quit(); process.exit(0); });

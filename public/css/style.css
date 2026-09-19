@@ -353,8 +353,76 @@ input:focus { outline: 2px solid var(--accent); }
 .moves-box .move-pair { display: flex; gap: 8px; padding: 2px 0; }
 .moves-box .move-num { color: var(--text-dim); width: 26px; }
 
-.action-row { display: flex; gap: 10px; }
-.action-row button { flex: 1; }
+.action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.action-row button { flex: 1; min-width: 70px; }
+
+/* ---- Analiz tahtası ---- */
+.analysis-board-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.eval-bar-container {
+  /* ÖNEMLİ: yükseklik burada SABİT bir px değeri olarak (percentage değil)
+     belirtilmeli — aksi halde içindeki .eval-bar-white/.eval-bar-black
+     öğelerinin yüzde (%) yükseklikleri geçersiz sayılır (CSS kuralı: bir
+     öğenin yüzde yüksekliği, üst kapsayıcının yüksekliği "içerikten değil
+     açıkça" belirtilmişse çalışır — flex "stretch" ile gelen yükseklik bu
+     sayılmıyor, 0 gibi davranıyordu). Tahtanın gerçek boyutuyla birebir
+     eşleşiyor: 6 kare * 70px + 2 * 3px kenarlık = 426px.
+  */
+  width: 22px;
+  height: 426px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+}
+
+.eval-bar-black { background: #1a1a1a; flex: 0 0 auto; }
+.eval-bar-white {
+  background: #eee;
+  flex: 0 0 auto;
+  margin-top: auto;
+  transition: height 0.25s ease;
+}
+
+.eval-label {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pv-box {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  min-height: 20px;
+  word-break: break-word;
+}
+
+.moves-box span[data-idx] { cursor: pointer; border-radius: 3px; padding: 1px 4px; }
+.moves-box span[data-idx]:hover { background: var(--bg-panel-light); }
+.moves-box span.current-move { background: var(--accent); color: #fff; }
+
+.square.best-move-from::after,
+.square.best-move-to::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 3px solid #3ba0ff;
+  border-radius: 4px;
+  pointer-events: none;
+  box-sizing: border-box;
+}
 
 .draw-offer-banner {
   background: var(--bg-panel-light);
