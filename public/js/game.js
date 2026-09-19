@@ -13,6 +13,14 @@
     K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
     k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟',
   };
+  // WinForms uygulamasındaki taş görselleri (public/images/pieces/ altında).
+  const PIECE_FILES = {
+    K: 'white_king', Q: 'white_queen', R: 'white_rook', B: 'white_bishop', N: 'white_knight', P: 'white_pawn',
+    k: 'black_king', q: 'black_queen', r: 'black_rook', b: 'black_bishop', n: 'black_knight', p: 'black_pawn',
+  };
+  function pieceImgSrc(letter) {
+    return `/images/pieces/${PIECE_FILES[letter]}.png`;
+  }
 
   const params = new URLSearchParams(window.location.search);
   const gameId = params.get('id');
@@ -111,7 +119,7 @@
         const el = squareEls[r][c];
         const piece = grid[r][c];
         el.innerHTML = piece
-          ? `<span class="piece ${piece === piece.toUpperCase() ? 'white-piece' : 'black-piece'}">${GLYPHS[piece]}</span>`
+          ? `<img class="piece-img" src="${pieceImgSrc(piece)}" alt="${GLYPHS[piece]}">`
           : '';
 
         const sq = squareName(r, c);
@@ -216,10 +224,10 @@
     const modal = $('promotionModal');
     const optsEl = $('promotionOptions');
     optsEl.innerHTML = '';
-    const glyphFor = (letter) => GLYPHS[myColor === 'white' ? letter.toUpperCase() : letter.toLowerCase()];
+    const letterFor = (letter) => myColor === 'white' ? letter.toUpperCase() : letter.toLowerCase();
     options.forEach(letter => {
       const btn = document.createElement('button');
-      btn.textContent = glyphFor(letter);
+      btn.innerHTML = `<img class="piece-img" src="${pieceImgSrc(letterFor(letter))}" alt="">`;
       btn.addEventListener('click', () => {
         modal.classList.add('hidden');
         onChoose(letter);

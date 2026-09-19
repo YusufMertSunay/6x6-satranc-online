@@ -218,7 +218,7 @@ input:focus { outline: 2px solid var(--accent); }
   background: var(--bg-panel);
   border-radius: 8px;
   padding: 10px 16px;
-  min-width: 552px;
+  min-width: 420px;
 }
 
 .player-strip .name { font-weight: 600; }
@@ -235,23 +235,32 @@ input:focus { outline: 2px solid var(--accent); }
 
 #board {
   display: grid;
-  grid-template-columns: repeat(6, 92px);
-  grid-template-rows: repeat(6, 92px);
+  grid-template-columns: repeat(6, 70px);
+  grid-template-rows: repeat(6, 70px);
   border: 3px solid var(--border);
   width: fit-content;
 }
 
 .square {
-  width: 92px;
-  height: 92px;
+  width: 70px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 68px;
+  font-size: 46px;
   line-height: 1;
   user-select: none;
   cursor: pointer;
   position: relative;
+}
+
+/* Taş görselleri (PNG) kullanılırsa: kareyi WinForms'taki gibi tam
+   kaplamasın diye biraz boşluk (padding) bırakıyoruz. */
+.square .piece-img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .square.light { background: var(--light-square); }
@@ -348,6 +357,13 @@ input:focus { outline: 2px solid var(--accent); }
   padding: 10px 16px;
   background: var(--bg-panel-light);
   color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.promotion-box .options button .piece-img {
+  width: 44px;
+  height: 44px;
 }
 .promotion-box .options button:hover { background: var(--accent); color: #fff; }
 
