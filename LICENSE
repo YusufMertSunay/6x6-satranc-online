@@ -1,0 +1,28 @@
+Telif Hakkı (c) 2026 Yusuf Mert Sunay. Tüm hakları saklıdır.
+
+Bu depodaki 6x6 Satranç Online projesinin kaynak kodu, tasarımı, varyant
+kuralları ve tüm ilişkili materyaller telif hakkı sahibine aittir.
+
+Telif hakkı sahibinin açık yazılı izni olmadan bu yazılımın tamamının veya
+bir kısmının kopyalanması, çoğaltılması, değiştirilmesi, dağıtılması,
+alt lisanslanması veya satılması yasaktır.
+
+Bu lisans, `engine/` klasöründeki Fairy-Stockfish motorunu kapsamaz — o,
+kendi GNU General Public License v3 (GPLv3) lisansına tabidir. Ayrıntılar
+için bkz. LICENSE-THIRDPARTY.md.
+
+---
+
+Copyright (c) 2026 Yusuf Mert Sunay. All rights reserved.
+
+The source code, design, variant rules, and all associated materials of
+the 6x6 Chess Online project in this repository are the property of the
+copyright holder.
+
+Copying, reproducing, modifying, distributing, sublicensing, or selling
+all or part of this software without the express written permission of
+the copyright holder is prohibited.
+
+This license does not cover the Fairy-Stockfish engine bundled under
+`engine/` — that component is licensed separately under the GNU General
+Public License v3 (GPLv3). See LICENSE-THIRDPARTY.md for details.

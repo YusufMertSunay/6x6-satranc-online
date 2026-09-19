@@ -1,0 +1,14 @@
+{
+  "name": "alti-satranc-online",
+  "version": "0.1.0",
+  "description": "6x6 Satranç - internetten oynanabilir sürüm (sunucu tarafı hamle doğrulaması Fairy-Stockfish ile yapılır)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "type": "commonjs"
+}

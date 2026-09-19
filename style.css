@@ -1,0 +1,365 @@
+:root {
+  --bg: #262421;
+  --bg-panel: #312e2b;
+  --bg-panel-light: #3d3a36;
+  --border: #4a4642;
+  --text: #e8e6e3;
+  --text-dim: #b8b4af;
+  --accent: #7fa650;
+  --accent-hover: #8fb85c;
+  --danger: #c94444;
+  --danger-hover: #d95555;
+  --light-square: #ebecd0;
+  --dark-square: #779556;
+  --highlight: rgba(255, 255, 0, 0.35);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a { color: var(--accent); }
+
+header.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+header.topbar h1 {
+  font-size: 20px;
+  margin: 0;
+  font-weight: 600;
+}
+
+header.topbar h1 .accent { color: var(--accent); }
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.user-badge .rating {
+  background: var(--bg-panel-light);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+button.primary { background: var(--accent); color: #fff; }
+button.primary:hover { background: var(--accent-hover); }
+button.primary:disabled { background: #555; cursor: not-allowed; }
+
+button.danger { background: var(--danger); color: #fff; }
+button.danger:hover { background: var(--danger-hover); }
+
+button.secondary { background: var(--bg-panel-light); color: var(--text); }
+button.secondary:hover { background: #4a4642; }
+
+input {
+  font-family: inherit;
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  width: 100%;
+}
+
+input:focus { outline: 2px solid var(--accent); }
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 14px;
+  min-height: 18px;
+}
+
+.hint-text {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.hidden { display: none !important; }
+
+/* ---- Giriş / kayıt ---- */
+.auth-wrap {
+  max-width: 380px;
+  margin: 60px auto;
+}
+
+.auth-wrap h2 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  background: var(--bg-panel-light);
+  color: var(--text-dim);
+}
+
+.auth-tabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---- Lobi ---- */
+.lobby-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .lobby-grid { grid-template-columns: 1fr; }
+}
+
+.card h3 { margin-top: 0; }
+
+.tc-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+
+.tc-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-panel-light);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.tc-option.selected { border-color: var(--accent); }
+.tc-option span.label { font-weight: 600; }
+
+.queue-status {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-dim);
+}
+
+.leaderboard-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.leaderboard-table th, .leaderboard-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.leaderboard-table th { color: var(--text-dim); font-weight: 600; }
+
+.games-list { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+.games-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+}
+.games-list li:last-child { border-bottom: none; }
+
+/* ---- Oyun sayfası ---- */
+.game-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 24px;
+}
+
+.board-column { display: flex; flex-direction: column; gap: 10px; }
+
+.player-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 10px 16px;
+  min-width: 420px;
+}
+
+.player-strip .name { font-weight: 600; }
+.player-strip .clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--bg-panel-light);
+  padding: 4px 14px;
+  border-radius: 6px;
+}
+.player-strip .clock.low { color: var(--danger); }
+.player-strip .clock.active { background: var(--accent); color: #fff; }
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(6, 70px);
+  grid-template-rows: repeat(6, 70px);
+  border: 3px solid var(--border);
+  width: fit-content;
+}
+
+.square {
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  line-height: 1;
+  user-select: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.square.light { background: var(--light-square); }
+.square.dark { background: var(--dark-square); }
+.square .piece.white-piece { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; }
+.square .piece.black-piece { color: #1a1a1a; }
+
+.square.selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--highlight);
+}
+
+.square.legal-dest::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.square.last-move { background-image: linear-gradient(rgba(255, 215, 0, 0.28), rgba(255, 215, 0, 0.28)); }
+
+.side-panel {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.status-box {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 15px;
+  min-height: 22px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.status-box.you-win { color: var(--accent); }
+.status-box.you-lose { color: var(--danger); }
+
+.moves-box {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 14px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.moves-box .move-pair { display: flex; gap: 8px; padding: 2px 0; }
+.moves-box .move-num { color: var(--text-dim); width: 26px; }
+
+.action-row { display: flex; gap: 10px; }
+.action-row button { flex: 1; }
+
+.draw-offer-banner {
+  background: var(--bg-panel-light);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+/* ---- Terfi seçim penceresi ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.promotion-box {
+  background: var(--bg-panel);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.promotion-box .options { display: flex; gap: 10px; margin-top: 14px; }
+.promotion-box .options button {
+  font-size: 34px;
+  padding: 10px 16px;
+  background: var(--bg-panel-light);
+  color: var(--text);
+}
+.promotion-box .options button:hover { background: var(--accent); color: #fff; }
+
+.game-over-banner {
+  background: var(--bg-panel-light);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.game-over-banner.loss { border-color: var(--danger); }
+
+.game-over-banner h3 { margin: 0 0 6px 0; }
+.game-over-banner .rating-change { font-size: 13px; color: var(--text-dim); margin-top: 6px; }

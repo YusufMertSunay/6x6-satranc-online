@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6x6 Satranç Online</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>6x6 <span class="accent">Satranç</span> Online</h1>
+  <div class="user-badge hidden" id="userBadge">
+    <span id="userName"></span>
+    <span class="rating" id="userRating"></span>
+    <button class="secondary" id="logoutBtn">Çıkış</button>
+  </div>
+</header>
+
+<!-- ---- Giriş / Kayıt ---- -->
+<div class="container auth-wrap" id="authView">
+  <div class="card">
+    <div class="auth-tabs">
+      <button class="active" id="tabLogin">Giriş Yap</button>
+      <button id="tabRegister">Kayıt Ol</button>
+    </div>
+    <h2 id="authTitle">Giriş Yap</h2>
+    <form class="auth-form" id="authForm">
+      <input type="text" id="authUsername" placeholder="Kullanıcı adı" autocomplete="username" required>
+      <input type="password" id="authPassword" placeholder="Parola" autocomplete="current-password" required>
+      <div class="error-text" id="authError"></div>
+      <button class="primary" type="submit" id="authSubmit">Giriş Yap</button>
+    </form>
+    <p class="hint-text">Kullanıcı adı 3-24 karakter, parola en az 6 karakter olmalı.</p>
+  </div>
+</div>
+
+<!-- ---- Lobi ---- -->
+<div class="container hidden" id="lobbyView">
+  <div class="lobby-grid">
+    <div class="card">
+      <h3>Hızlı Eşleşme</h3>
+      <div class="tc-list" id="tcList"></div>
+      <button class="primary" id="findMatchBtn" style="width:100%">Oyun Bul</button>
+      <div class="queue-status hidden" id="queueStatus">
+        Rakip aranıyor<span id="queueDots">...</span>
+        <div style="margin-top:10px"><button class="secondary" id="cancelQueueBtn">İptal Et</button></div>
+      </div>
+      <div class="hidden" id="activeGameBanner" style="margin-top:14px">
+        <div class="draw-offer-banner">
+          <span>Devam eden bir oyunun var.</span>
+          <button class="primary" id="resumeGameBtn">Oyuna Dön</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Liderlik Tablosu</h3>
+      <table class="leaderboard-table">
+        <thead><tr><th>#</th><th>Kullanıcı</th><th>Puan</th><th>G/M/B</th></tr></thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1">
+      <h3>Son Oyunların</h3>
+      <ul class="games-list" id="myGamesList"><li class="hint-text">Henüz oyun yok.</li></ul>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
