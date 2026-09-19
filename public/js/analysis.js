@@ -295,10 +295,18 @@
     selected = null;
     refreshPosition();
   });
+  // Değerlendirme çubuğu (eval bar) da tahtayla aynı yönde dursun diye —
+  // tahta çevrilince (siyah altta gösterilince) çubuk da ters dönüp beyaz
+  // üstte, siyah altta görünür (bkz. style.css: .eval-bar-container.flipped).
+  function syncEvalBarOrientation() {
+    $('evalBarContainer').classList.toggle('flipped', flipped);
+  }
+
   $('flipBoardBtn').addEventListener('click', () => {
     flipped = !flipped;
     buildBoardSkeleton();
     renderPlayerNames();
+    syncEvalBarOrientation();
     renderBoard();
   });
 
@@ -545,6 +553,7 @@
 
     buildBoardSkeleton();
     renderPlayerNames();
+    syncEvalBarOrientation();
 
     // C# masaüstü uygulamasındaki gibi analiz varsayılan olarak oyunun
     // SONUNDA açılıyor (bitmiş oyunun son pozisyonu).

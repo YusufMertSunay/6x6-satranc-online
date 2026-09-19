@@ -382,13 +382,17 @@ input:focus { outline: 2px solid var(--accent); }
   background: #1a1a1a;
 }
 
-.eval-bar-black { background: #1a1a1a; flex: 0 0 auto; }
+/* Normal (çevrilmemiş) tahtada üstte siyah, altta beyaz oturuyor — tahtanın
+   varsayılan görünümüyle (beyaz altta) eşleşiyor. Tahta çevrilince (siyah
+   altta gösterilince) .flipped sınıfı ekleniyor ve flex-direction ters
+   çevrilerek çubuk da aynı yönde dönüyor (beyaz üstte, siyah altta). */
+.eval-bar-black { background: #1a1a1a; flex: 0 0 auto; transition: height 0.25s ease; }
 .eval-bar-white {
   background: #eee;
   flex: 0 0 auto;
-  margin-top: auto;
   transition: height 0.25s ease;
 }
+.eval-bar-container.flipped { flex-direction: column-reverse; }
 
 .eval-label {
   background: var(--bg-panel);
