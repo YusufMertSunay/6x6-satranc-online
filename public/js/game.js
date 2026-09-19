@@ -579,5 +579,49 @@
     if (clockTimer) clearInterval(clockTimer);
   });
 
+  // ---------------- Tahta renkleri ----------------
+  // Kullanıcının seçtiği açık/koyu kare renkleri, sadece kendi tarayıcısında
+  // (localStorage) saklanır — hesabına değil cihazına bağlıdır, sunucuya
+  // gönderilmez ve rakibi etkilemez.
+  const DEFAULT_LIGHT_SQUARE = '#ebecd0';
+  const DEFAULT_DARK_SQUARE = '#779556';
+
+  function applyBoardColors(light, dark) {
+    document.documentElement.style.setProperty('--light-square', light);
+    document.documentElement.style.setProperty('--dark-square', dark);
+  }
+
+  function initBoardColorSettings() {
+    let light = DEFAULT_LIGHT_SQUARE;
+    let dark = DEFAULT_DARK_SQUARE;
+    try {
+      light = localStorage.getItem('boardLightColor') || DEFAULT_LIGHT_SQUARE;
+      dark = localStorage.getItem('boardDarkColor') || DEFAULT_DARK_SQUARE;
+    } catch { /* localStorage kapalı/engelliyse varsayılanlarla devam */ }
+
+    applyBoardColors(light, dark);
+    $('lightColorInput').value = light;
+    $('darkColorInput').value = dark;
+
+    $('lightColorInput').addEventListener('input', (e) => {
+      applyBoardColors(e.target.value, $('darkColorInput').value);
+      try { localStorage.setItem('boardLightColor', e.target.value); } catch { }
+    });
+    $('darkColorInput').addEventListener('input', (e) => {
+      applyBoardColors($('lightColorInput').value, e.target.value);
+      try { localStorage.setItem('boardDarkColor', e.target.value); } catch { }
+    });
+    $('resetBoardColorsBtn').addEventListener('click', () => {
+      applyBoardColors(DEFAULT_LIGHT_SQUARE, DEFAULT_DARK_SQUARE);
+      $('lightColorInput').value = DEFAULT_LIGHT_SQUARE;
+      $('darkColorInput').value = DEFAULT_DARK_SQUARE;
+      try {
+        localStorage.removeItem('boardLightColor');
+        localStorage.removeItem('boardDarkColor');
+      } catch { }
+    });
+  }
+
+  initBoardColorSettings();
   init();
 })();

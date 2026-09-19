@@ -211,6 +211,40 @@ input:focus { outline: 2px solid var(--accent); }
 
 .board-column { display: flex; flex-direction: column; gap: 10px; }
 
+/* ---- Tahta renk ayarları (tercih tarayıcıda saklanır) ---- */
+.board-color-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.board-color-settings .bcs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-color-settings input[type="color"] {
+  width: 34px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel-light);
+  cursor: pointer;
+}
+
+.board-color-settings button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
 .player-strip {
   display: flex;
   align-items: center;
