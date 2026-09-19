@@ -281,15 +281,11 @@
 
   // ---------------- Genel görünüm güncelleme ----------------
 
-  function moveListToSan(moves) {
-    // Tam SAN üretmek (rok/terfi gösterimi vb.) için ek karmaşıklık gerekir;
-    // MVP için UCI hamlelerini okunaklı şekilde (ör. "b5-b4") gösteriyoruz.
-    return moves.map(m => m.slice(0, 2) + '-' + m.slice(2, 4) + (m.length > 4 ? '=' + m.slice(4).toUpperCase() : ''));
-  }
-
   function renderMoves() {
     const box = $('movesBox');
-    const sanMoves = moveListToSan(state.movesUci);
+    // Gerçek cebirsel gösterim (SAN — ör. "exf4", "Qa5", "Bxb2", "O-O-O",
+    // "Nf3+") sunucu tarafında hesaplanıp state.sanMoves içinde geliyor.
+    const sanMoves = state.sanMoves || [];
     let html = '';
     for (let i = 0; i < sanMoves.length; i += 2) {
       const num = i / 2 + 1;
