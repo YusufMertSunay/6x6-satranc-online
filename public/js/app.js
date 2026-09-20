@@ -78,9 +78,9 @@
 
   // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — her biri 1500'den
-  // başlıyor. Üstteki puan rozetini de seçili süre kontrolüne göre
-  // güncel tutuyoruz ki kullanıcı "hangi puanıma bakıyorum" diye
-  // kafası karışmasın.
+  // başlıyor. Her kategori zaten kendi satırında gösterildiği için üstte
+  // (profil adının yanında) AYRICA tek bir puan göstermiyoruz — kullanıcı
+  // "hangi puanıma bakıyorum" diye kafası karışmasın diye kaldırıldı.
   function ratingFor(category) {
     return (currentUser && currentUser.ratings && currentUser.ratings[category]) ?? 1500;
   }
@@ -99,14 +99,10 @@
         document.querySelectorAll('.tc-option').forEach(el => el.classList.remove('selected'));
         div.classList.add('selected');
         selectedTc = tc.key;
-        $('userRating').textContent = ratingFor(tc.category);
       });
       list.appendChild(div);
     });
-    if (tcs.length) {
-      selectedTc = tcs[0].key;
-      $('userRating').textContent = ratingFor(tcs[0].category);
-    }
+    if (tcs.length) selectedTc = tcs[0].key;
   }
 
   async function loadLeaderboard(category) {
