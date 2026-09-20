@@ -118,11 +118,15 @@
   // ---------------- Tahta çizimi ----------------
 
   const boardEl = $('board');
-  let squareEls = []; // [r][c] -> element
+  let squareEls = []; // [r][c] -> element (dış kare div'i)
+  let pieceSlotEls = []; // [r][c] -> element (taş görselinin çizildiği İÇ katman -- koordinat
+                          // etiketleri kareden AYRI durduğu için renderBoard() artık dış
+                          // kareyi değil, sadece bu iç katmanı innerHTML ile değiştiriyor)
 
   function buildBoardSkeleton() {
     boardEl.innerHTML = '';
     squareEls = Array.from({ length: BOARD_SIZE }, () => new Array(BOARD_SIZE));
+    pieceSlotEls = Array.from({ length: BOARD_SIZE }, () => new Array(BOARD_SIZE));
     for (let dr = 0; dr < BOARD_SIZE; dr++) {
       for (let dc = 0; dc < BOARD_SIZE; dc++) {
         const r = flipped ? BOARD_SIZE - 1 - dr : dr;
@@ -132,10 +136,36 @@
         div.className = 'square ' + (isLight ? 'light' : 'dark');
         div.dataset.r = r;
         div.dataset.c = c;
+
+        // Taş görseli buraya (dış kareye değil) çiziliyor -- böylece
+        // renderBoard() her tetiklendiğinde koordinat etiketleri SİLİNMİYOR.
+        const pieceSlot = document.createElement('div');
+        pieceSlot.className = 'piece-slot';
+        div.appendChild(pieceSlot);
+
+        // Tahta koordinatları (lichess'teki gibi): EKRANDA en alttaki satırın
+        // karelerinin sol-altına dosya harfi (a-f), EKRANDA en sağdaki
+        // sütunun karelerinin sağ-üstüne sıra numarası (1-6) ekleniyor. r/c
+        // yukarıda flip'e göre zaten doğru hesaplandığından, tahta
+        // çevrildiğinde bu etiketler de otomatik olarak doğru köşeye geçer.
+        if (dr === BOARD_SIZE - 1) {
+          const fileLabel = document.createElement('span');
+          fileLabel.className = 'coord-label coord-file';
+          fileLabel.textContent = String.fromCharCode('a'.charCodeAt(0) + c);
+          div.appendChild(fileLabel);
+        }
+        if (dc === BOARD_SIZE - 1) {
+          const rankLabel = document.createElement('span');
+          rankLabel.className = 'coord-label coord-rank';
+          rankLabel.textContent = String(BOARD_SIZE - r);
+          div.appendChild(rankLabel);
+        }
+
         div.addEventListener('click', () => onSquareClick(r, c));
         div.addEventListener('pointerdown', (e) => onSquarePointerDown(e, r, c));
         boardEl.appendChild(div);
         squareEls[r][c] = div;
+        pieceSlotEls[r][c] = pieceSlot;
       }
     }
   }
@@ -157,7 +187,7 @@
         // Sürükleme sırasında, taş kaynağı karede görsel taşı çizmiyoruz —
         // onun yerine ekranda gezen "hayalet" (ghost) görsel gösteriliyor.
         const isDragSource = !!(dragState && dragState.dragging && r === dragState.fromR && c === dragState.fromC);
-        el.innerHTML = (piece && !isDragSource)
+        pieceSlotEls[r][c].innerHTML = (piece && !isDragSource)
           ? `<img class="piece-img" src="${pieceImgSrc(piece)}" alt="${GLYPHS[piece]}">`
           : '';
 

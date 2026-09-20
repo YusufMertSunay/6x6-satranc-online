@@ -326,6 +326,20 @@ input:focus { outline: 2px solid var(--accent); }
   touch-action: none;
 }
 
+/* Taş görseli artık kareye DOĞRUDAN değil, bu iç katmana (piece-slot)
+   çiziliyor -- böylece renderBoard() innerHTML'i her değiştirdiğinde
+   aşağıdaki koordinat etiketleri (.coord-label) SİLİNMİYOR (onlar kareye
+   AYRI bir eleman olarak, bir kere ekleniyor). Kare eskiden olduğu gibi
+   flex ile ortaladığı için, bu katman da kareyi tamamen kaplayıp taşı
+   kendi içinde ortalıyor -- görsel sonuç birebir aynı.  */
+.square .piece-slot {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Taş görselleri (PNG) kullanılırsa: kareyi WinForms'taki gibi tam
    kaplamasın diye biraz boşluk (padding) bırakıyoruz. */
 .square .piece-img {
@@ -334,6 +348,28 @@ input:focus { outline: 2px solid var(--accent); }
   object-fit: contain;
   pointer-events: none;
 }
+
+/* Tahta koordinatları (lichess'teki gibi): EKRANDA en alttaki satırın
+   karelerinin sol-altında dosya harfi (a-f), EKRANDA en sağdaki sütunun
+   karelerinin sağ-üstünde sıra numarası (1-6) gösteriliyor (bkz. game.js/
+   analysis.js: buildBoardSkeleton). Tahta çevrildiğinde (flip) bu etiketler
+   otomatik olarak doğru köşeye geçer. Kare rengiyle karışmasın diye KARŞIT
+   renk kullanılıyor -- kullanıcı tahta renklerini değiştirdiğinde (bkz.
+   --light-square/--dark-square) etiketler de otomatik uyum sağlar. */
+.coord-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: Arial, Helvetica, sans-serif;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.85;
+}
+.coord-label.coord-file { left: 4px; bottom: 2px; }
+.coord-label.coord-rank { right: 4px; top: 2px; }
+.square.light .coord-label { color: var(--dark-square); }
+.square.dark .coord-label { color: var(--light-square); }
 
 .square.light { background: var(--light-square); }
 .square.dark { background: var(--dark-square); }
