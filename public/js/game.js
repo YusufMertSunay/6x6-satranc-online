@@ -43,6 +43,17 @@
   let clockTimer = null;
   let sse = null;
 
+  // ---------------- Sürükle-bırak (drag & drop) durumu ----------------
+  // Taşları hem tıklayarak (yukarıdaki selected/legalMoves akışı) hem de
+  // lichess/chess.com'daki gibi SÜRÜKLEYEREK oynatabilmek için: Pointer
+  // Events API kullanıyoruz (fare + dokunmatik, tek kod yolu). Küçük bir
+  // eşik (DRAG_THRESHOLD_PX) aşılmadan "sürükleme" başlatılmıyor — bu
+  // sayede düz bir tıklama, native 'click' olayına dokunulmadan eskisi
+  // gibi çalışmaya devam ediyor.
+  let dragState = null; // { pointerId, fromR, fromC, fromSq, piece, startX, startY, dragging, ghostEl, ghostW, ghostH }
+  let suppressNextClick = false;
+  const DRAG_THRESHOLD_PX = 5;
+
   if (!gameId) {
     window.location.href = '/';
     return;
@@ -122,6 +133,7 @@
         div.dataset.r = r;
         div.dataset.c = c;
         div.addEventListener('click', () => onSquareClick(r, c));
+        div.addEventListener('pointerdown', (e) => onSquarePointerDown(e, r, c));
         boardEl.appendChild(div);
         squareEls[r][c] = div;
       }
@@ -142,7 +154,10 @@
       for (let c = 0; c < BOARD_SIZE; c++) {
         const el = squareEls[r][c];
         const piece = grid[r][c];
-        el.innerHTML = piece
+        // Sürükleme sırasında, taş kaynağı karede görsel taşı çizmiyoruz —
+        // onun yerine ekranda gezen "hayalet" (ghost) görsel gösteriliyor.
+        const isDragSource = !!(dragState && dragState.dragging && r === dragState.fromR && c === dragState.fromC);
+        el.innerHTML = (piece && !isDragSource)
           ? `<img class="piece-img" src="${pieceImgSrc(piece)}" alt="${GLYPHS[piece]}">`
           : '';
 
@@ -261,6 +276,150 @@
     });
     modal.classList.remove('hidden');
   }
+
+  // ---------------- Sürükle-bırak (drag & drop) ----------------
+
+  function onSquarePointerDown(e, r, c) {
+    if (!state || state.status !== 'active') return;
+    if (!myTurn()) return;
+    const grid = fenToGrid(state.currentFen);
+    const piece = grid[r][c];
+    if (!pieceBelongsToMe(piece)) return;
+    // Henüz "sürükleme" başlatmıyoruz — sadece olası bir sürüklemenin
+    // başlangıç noktasını kaydediyoruz. Eşik aşılmazsa bu, native 'click'
+    // olayına bırakılan düz bir tıklama olarak kalacak.
+    dragState = {
+      pointerId: e.pointerId,
+      fromR: r,
+      fromC: c,
+      fromSq: squareName(r, c),
+      piece,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      ghostEl: null,
+      ghostW: 0,
+      ghostH: 0,
+    };
+  }
+
+  function positionGhost(x, y) {
+    if (!dragState || !dragState.ghostEl) return;
+    dragState.ghostEl.style.left = (x - dragState.ghostW / 2) + 'px';
+    dragState.ghostEl.style.top = (y - dragState.ghostH / 2) + 'px';
+  }
+
+  function startDragging(e) {
+    dragState.dragging = true;
+    selected = dragState.fromSq;
+    const rect = squareEls[dragState.fromR][dragState.fromC].getBoundingClientRect();
+    const ghost = document.createElement('img');
+    ghost.className = 'drag-ghost';
+    ghost.src = pieceImgSrc(dragState.piece);
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    document.body.appendChild(ghost);
+    dragState.ghostEl = ghost;
+    dragState.ghostW = rect.width;
+    dragState.ghostH = rect.height;
+    positionGhost(e.clientX, e.clientY);
+    renderBoard();
+  }
+
+  function cleanupDrag() {
+    if (dragState && dragState.ghostEl) dragState.ghostEl.remove();
+    dragState = null;
+  }
+
+  function onDocumentPointerMove(e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return;
+    if (!dragState.dragging) {
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      startDragging(e);
+    }
+    positionGhost(e.clientX, e.clientY);
+  }
+
+  async function onDocumentPointerUp(e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return;
+
+    if (!dragState.dragging) {
+      // Eşik hiç aşılmadı — bu düz bir tıklamaydı, native 'click' olayı
+      // zaten onSquareClick'i tetikleyecek. Sadece durumu temizliyoruz.
+      dragState = null;
+      return;
+    }
+
+    // Gerçek bir sürükleme yapıldı — bunu takip edecek senkron 'click'
+    // olayını (varsa) görmezden gel (aynı hamlenin iki kez işlenmemesi için).
+    // NOT: Bırakma tahtanın DIŞINDA olduysa (ör. senaryo 3) mousedown/mouseup
+    // hedefleri farklı olduğu için tarayıcı hiç 'click' olayı üretmeyebilir
+    // — bu durumda bayrak sonsuza kadar 'true' kalıp BİR SONRAKİ gerçek
+    // tıklamayı yanlışlıkla yutar. Bunu önlemek için, olay varsa onu
+    // tüketen yakalayıcı listener'a EK OLARAK, kısa bir süre sonra bayrağı
+    // otomatik olarak sıfırlayan bir yedek (setTimeout 0) koyuyoruz.
+    suppressNextClick = true;
+    setTimeout(() => { suppressNextClick = false; }, 0);
+
+    const fromSq = dragState.fromSq;
+    let dropSq = null;
+    const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+    const squareEl = targetEl && targetEl.closest ? targetEl.closest('.square') : null;
+    if (squareEl && boardEl.contains(squareEl)) {
+      const r = parseInt(squareEl.dataset.r, 10);
+      const c = parseInt(squareEl.dataset.c, 10);
+      dropSq = squareName(r, c);
+    }
+
+    cleanupDrag();
+    selected = null;
+
+    // Alakasız bir kareye ya da tahtanın dışına bırakıldıysa (dropSq yok)
+    // veya kendi karesine bırakıldıysa: hamleyi HİÇ oynatma, taş eski
+    // yerine geri dönsün (renderBoard yeniden gerçek durumu çizecek).
+    if (!dropSq || dropSq === fromSq) {
+      renderBoard();
+      return;
+    }
+
+    const matches = legalMoves.filter(m => m.startsWith(fromSq) && m.slice(2, 4) === dropSq);
+    if (matches.length === 0) {
+      renderBoard();
+      return;
+    }
+
+    renderBoard();
+
+    if (matches.length === 1) {
+      await submitMove(fromSq, dropSq, null);
+    } else {
+      const options = matches.map(m => m.slice(4));
+      showPromotionModal(options, async (choice) => {
+        await submitMove(fromSq, dropSq, choice);
+      });
+    }
+  }
+
+  document.addEventListener('pointermove', onDocumentPointerMove);
+  document.addEventListener('pointerup', onDocumentPointerUp);
+  document.addEventListener('pointercancel', () => {
+    cleanupDrag();
+    selected = null;
+    if (state) renderBoard();
+  });
+
+  // Gerçek bir sürüklemenin ARDINDAN gelebilecek senkron 'click' olayını
+  // yakalama (capture) aşamasında keserek onSquareClick'e hiç ulaşmasını
+  // engelliyoruz (aksi halde aynı hamle iki kez işlenmeye çalışılabilir).
+  boardEl.addEventListener('click', (e) => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
 
   // ---------------- Saatler ----------------
 

@@ -66,6 +66,15 @@
   let generation = 0; // her navigasyonda artar; eski (gecikmiş) motor cevapları bununla elenir
   let bestMoveHighlight = null; // { from, to } ya da null
 
+  // ---------------- Sürükle-bırak (drag & drop) durumu ----------------
+  // Oyun ekranındaki (game.js) ile birebir aynı mantık: taşları tıklayarak
+  // VEYA sürükleyerek oynatabilmek için Pointer Events kullanıyoruz; küçük
+  // bir eşik aşılmadan sürükleme başlamıyor, böylece düz tıklama akışı
+  // (onSquareClick) hiç değişmeden çalışmaya devam ediyor.
+  let dragState = null;
+  let suppressNextClick = false;
+  const DRAG_THRESHOLD_PX = 5;
+
   async function api(method, pathname, body) {
     const res = await fetch(pathname, {
       method,
@@ -133,6 +142,7 @@
         div.dataset.r = r;
         div.dataset.c = c;
         div.addEventListener('click', () => onSquareClick(r, c));
+        div.addEventListener('pointerdown', (e) => onSquarePointerDown(e, r, c));
         boardEl.appendChild(div);
         squareEls[r][c] = div;
       }
@@ -155,7 +165,10 @@
       for (let c = 0; c < BOARD_SIZE; c++) {
         const el = squareEls[r][c];
         const piece = grid[r][c];
-        el.innerHTML = piece
+        // Sürükleme sırasında taş kaynağı karede görsel taşı çizmiyoruz —
+        // onun yerine ekranda gezen "hayalet" görsel gösteriliyor.
+        const isDragSource = !!(dragState && dragState.dragging && r === dragState.fromR && c === dragState.fromC);
+        el.innerHTML = (piece && !isDragSource)
           ? `<img class="piece-img" src="${pieceImgSrc(piece)}" alt="${GLYPHS[piece]}">`
           : '';
 
@@ -334,6 +347,139 @@
     });
     modal.classList.remove('hidden');
   }
+
+  // ---------------- Sürükle-bırak (drag & drop) ----------------
+
+  function onSquarePointerDown(e, r, c) {
+    if (!currentFen) return;
+    const grid = fenToGrid(currentFen);
+    const piece = grid[r][c];
+    if (!pieceBelongsToSideToMove(piece)) return;
+    dragState = {
+      pointerId: e.pointerId,
+      fromR: r,
+      fromC: c,
+      fromSq: squareName(r, c),
+      piece,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      ghostEl: null,
+      ghostW: 0,
+      ghostH: 0,
+    };
+  }
+
+  function positionGhost(x, y) {
+    if (!dragState || !dragState.ghostEl) return;
+    dragState.ghostEl.style.left = (x - dragState.ghostW / 2) + 'px';
+    dragState.ghostEl.style.top = (y - dragState.ghostH / 2) + 'px';
+  }
+
+  function startDragging(e) {
+    dragState.dragging = true;
+    selected = dragState.fromSq;
+    const rect = squareEls[dragState.fromR][dragState.fromC].getBoundingClientRect();
+    const ghost = document.createElement('img');
+    ghost.className = 'drag-ghost';
+    ghost.src = pieceImgSrc(dragState.piece);
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    document.body.appendChild(ghost);
+    dragState.ghostEl = ghost;
+    dragState.ghostW = rect.width;
+    dragState.ghostH = rect.height;
+    positionGhost(e.clientX, e.clientY);
+    renderBoard();
+  }
+
+  function cleanupDrag() {
+    if (dragState && dragState.ghostEl) dragState.ghostEl.remove();
+    dragState = null;
+  }
+
+  function onDocumentPointerMove(e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return;
+    if (!dragState.dragging) {
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      startDragging(e);
+    }
+    positionGhost(e.clientX, e.clientY);
+  }
+
+  function onDocumentPointerUp(e) {
+    if (!dragState || e.pointerId !== dragState.pointerId) return;
+
+    if (!dragState.dragging) {
+      // Eşik aşılmadı — düz bir tıklamaydı, native 'click' olayı zaten
+      // onSquareClick'i tetikleyecek.
+      dragState = null;
+      return;
+    }
+
+    // NOT: Bırakma tahtanın dışında olduysa tarayıcı hiç 'click' olayı
+    // üretmeyebilir (mousedown/mouseup hedefleri farklı) — bu durumda
+    // bayrağın sonsuza dek 'true' kalıp bir sonraki gerçek tıklamayı
+    // yutmaması için kısa bir yedek sıfırlama (setTimeout 0) da ekliyoruz.
+    suppressNextClick = true;
+    setTimeout(() => { suppressNextClick = false; }, 0);
+
+    const fromSq = dragState.fromSq;
+    let dropSq = null;
+    const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+    const squareEl = targetEl && targetEl.closest ? targetEl.closest('.square') : null;
+    if (squareEl && boardEl.contains(squareEl)) {
+      const r = parseInt(squareEl.dataset.r, 10);
+      const c = parseInt(squareEl.dataset.c, 10);
+      dropSq = squareName(r, c);
+    }
+
+    cleanupDrag();
+    selected = null;
+
+    // Alakasız bir kareye ya da tahtanın dışına bırakıldıysa, ya da kendi
+    // karesine bırakıldıysa: hamleyi hiç oynatma.
+    if (!dropSq || dropSq === fromSq) {
+      renderBoard();
+      return;
+    }
+
+    const matches = currentLegalMoves.filter(m => m.startsWith(fromSq) && m.slice(2, 4) === dropSq);
+    if (matches.length === 0) {
+      renderBoard();
+      return;
+    }
+
+    if (matches.length === 1) {
+      appliedMoves.push(matches[0]);
+      refreshPosition();
+    } else {
+      const options = matches.map(m => m.slice(4));
+      const sideIsWhite = currentWhiteToMove;
+      showPromotionModal(options, sideIsWhite, (choice) => {
+        appliedMoves.push(fromSq + dropSq + choice);
+        refreshPosition();
+      });
+    }
+  }
+
+  document.addEventListener('pointermove', onDocumentPointerMove);
+  document.addEventListener('pointerup', onDocumentPointerUp);
+  document.addEventListener('pointercancel', () => {
+    cleanupDrag();
+    selected = null;
+    if (currentFen) renderBoard();
+  });
+
+  boardEl.addEventListener('click', (e) => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
 
   // ---------------- Hamle listesi ----------------
 

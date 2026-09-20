@@ -321,6 +321,9 @@ input:focus { outline: 2px solid var(--accent); }
   user-select: none;
   cursor: pointer;
   position: relative;
+  /* Dokunmatik cihazlarda taşı sürüklerken sayfanın kaymasını engeller
+     (lichess/chess.com'daki gibi sürükle-bırak deneyimi için gerekli). */
+  touch-action: none;
 }
 
 /* Taş görselleri (PNG) kullanılırsa: kareyi WinForms'taki gibi tam
@@ -364,6 +367,20 @@ input:focus { outline: 2px solid var(--accent); }
     rgba(231, 0, 0, 0.75) 25%,
     rgba(169, 0, 0, 0.4) 50%,
     rgba(158, 0, 0, 0) 80%);
+}
+
+/* Sürükleme sırasında farenin/parmağın altında gezen "hayalet" taş görseli.
+   Gerçek DOM taşları etkilemesin diye pointer-events: none — böylece
+   document.elementFromPoint() her zaman altındaki KAREYİ bulur, hayaleti
+   değil. Hem game.js hem analysis.js tarafından kullanılıyor. */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1000;
+  object-fit: contain;
+  opacity: 0.9;
 }
 
 .side-panel {
