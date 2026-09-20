@@ -175,6 +175,25 @@ input:focus { outline: 2px solid var(--accent); }
 
 .tc-option.selected { border-color: var(--accent); }
 .tc-option span.label { font-weight: 600; }
+/* Her süre kontrolünün yanında, o kategorideki (Bullet/Blitz/Rapid/Klasik)
+   Elo puanının gösterilmesi için — bkz. app.js loadTimeControls(). */
+.tc-option span.tc-rating { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* Liderlik tablosu artık kategoriye göre (Bullet/Blitz/Rapid/Klasik) ayrı
+   olduğu için, hangi kategörinin gösterildiğini seçmek için küçük sekmeler. */
+.leaderboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.leaderboard-tabs button {
+  background: var(--bg-panel-light);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.leaderboard-tabs button.active { background: var(--accent); color: #fff; }
 
 .queue-status {
   text-align: center;

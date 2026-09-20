@@ -22,6 +22,10 @@
     return `/images/pieces/${PIECE_FILES[letter]}.png`;
   }
 
+  // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
+  // (bullet/blitz/rapid/classical) AYRI tutuluyor — bkz. lib/store.js.
+  const CATEGORY_LABELS = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classical: 'Klasik' };
+
   const params = new URLSearchParams(window.location.search);
   const gameId = params.get('id');
   const $ = (id) => document.getElementById(id);
@@ -347,7 +351,8 @@
     let ratingLine = '';
     if (typeof state.whiteRatingAfter === 'number') {
       const myRatingAfter = myColor === 'white' ? state.whiteRatingAfter : state.blackRatingAfter;
-      ratingLine = `<div class="rating-change">Yeni puanın: ${myRatingAfter}</div>`;
+      const categoryLabel = CATEGORY_LABELS[state.timeControlCategory] || '';
+      ratingLine = `<div class="rating-change">Yeni ${categoryLabel} puanın: ${myRatingAfter}</div>`;
     }
     banner.innerHTML = `<h3>${outcomeText}</h3><div>${resultReasonText(state.resultReason)}</div>${ratingLine}`;
     banner.classList.remove('hidden');
@@ -546,7 +551,6 @@
       return;
     }
     $('userName').textContent = me.username;
-    $('userRating').textContent = me.rating;
 
     try {
       const { live, state: loadedState } = await api('GET', `/api/game/${gameId}`);
@@ -563,6 +567,11 @@
       setStatusMessage('Oyun yüklenemedi: ' + err.message, true);
       return;
     }
+
+    // Puan rozeti bu oyunun süre kontrolü KATEGORİSİNE ait puanı gösteriyor
+    // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
+    const myCategory = state.timeControlCategory || 'bullet';
+    $('userRating').textContent = (me.ratings && me.ratings[myCategory]) ?? '-';
 
     myColor = state.whiteId === me.id ? 'white' : (state.blackId === me.id ? 'black' : null);
     if (!myColor) {

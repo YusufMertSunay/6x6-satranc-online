@@ -603,7 +603,6 @@
       return;
     }
     $('userName').textContent = me.username;
-    $('userRating').textContent = me.rating;
 
     let info;
     try {
@@ -620,6 +619,11 @@
     blackId = info.blackId;
     whiteUsername = info.whiteUsername;
     blackUsername = info.blackUsername;
+
+    // Puan rozeti bu oyunun süre kontrolü kategorisine ait puanı gösteriyor
+    // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
+    const myCategory = info.timeControlCategory || 'bullet';
+    $('userRating').textContent = (me.ratings && me.ratings[myCategory]) ?? '-';
 
     myColor = me.id === whiteId ? 'white' : (me.id === blackId ? 'black' : null);
     flipped = myColor === 'black';

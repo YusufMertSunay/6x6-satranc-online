@@ -15,7 +15,7 @@ const path = require('path');
 const { URL } = require('url');
 
 const { Engine } = require('./lib/engine');
-const { Store } = require('./lib/store');
+const { Store, RATING_CATEGORIES } = require('./lib/store');
 const { hashPassword, verifyPassword, SessionManager, parseCookies } = require('./lib/auth');
 const { EventHub } = require('./lib/events');
 const { GameManager, START_FEN } = require('./lib/gameManager');
@@ -126,6 +126,7 @@ function getFinishedGameForUser(gameId, userId) {
       sanMoves: live.sanMoves,
       whiteId: live.whiteId,
       blackId: live.blackId,
+      timeControlCategory: live.timeControlCategory,
     };
   }
   const persisted = store.getGame(gameId);
@@ -137,6 +138,7 @@ function getFinishedGameForUser(gameId, userId) {
       sanMoves: persisted.sanMoves,
       whiteId: persisted.whiteId,
       blackId: persisted.blackId,
+      timeControlCategory: persisted.timeControlCategory,
     };
   }
   return null;
@@ -204,7 +206,7 @@ async function handleApi(req, res, pathname, url) {
       const user = store.createUser({ username, passwordHash, salt });
       const token = sessions.createSession(user.id);
       res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-      return sendJson(res, 200, { id: user.id, username: user.username, rating: user.rating });
+      return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings });
     } catch (err) {
       return sendJson(res, 400, { error: err.message });
     }
@@ -218,11 +220,15 @@ async function handleApi(req, res, pathname, url) {
     }
     const token = sessions.createSession(user.id);
     res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-    return sendJson(res, 200, { id: user.id, username: user.username, rating: user.rating });
+    return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings });
   }
 
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
-    return sendJson(res, 200, { leaderboard: store.leaderboard(20) });
+    // Elo puanı kategoriye göre AYRI olduğu için liderlik tablosu da tek bir
+    // kategoriye göre sıralanıyor (?category=bullet|blitz|rapid|classical).
+    const requestedCategory = url.searchParams.get('category');
+    const category = RATING_CATEGORIES.includes(requestedCategory) ? requestedCategory : 'bullet';
+    return sendJson(res, 200, { category, leaderboard: store.leaderboard(category, 20) });
   }
 
   if (pathname === '/api/time-controls' && req.method === 'GET') {
@@ -242,7 +248,7 @@ async function handleApi(req, res, pathname, url) {
 
   if (pathname === '/api/me' && req.method === 'GET') {
     return sendJson(res, 200, {
-      id: user.id, username: user.username, rating: user.rating,
+      id: user.id, username: user.username, ratings: user.ratings,
       wins: user.wins, losses: user.losses, draws: user.draws,
     });
   }
@@ -376,6 +382,7 @@ async function handleApi(req, res, pathname, url) {
         blackId: info.blackId,
         whiteUsername: whiteUser?.username || '?',
         blackUsername: blackUser?.username || '?',
+        timeControlCategory: info.timeControlCategory,
       });
     }
 

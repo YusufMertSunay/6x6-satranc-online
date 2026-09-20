@@ -74,6 +74,16 @@
   let timeControls = [];
   let selectedTc = null;
   let inQueue = false;
+  let leaderboardCategory = 'bullet';
+
+  // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
+  // (bullet/blitz/rapid/classical) AYRI tutuluyor — her biri 1500'den
+  // başlıyor. Üstteki puan rozetini de seçili süre kontrolüne göre
+  // güncel tutuyoruz ki kullanıcı "hangi puanıma bakıyorum" diye
+  // kafası karışmasın.
+  function ratingFor(category) {
+    return (currentUser && currentUser.ratings && currentUser.ratings[category]) ?? 1500;
+  }
 
   async function loadTimeControls() {
     const { timeControls: tcs } = await api('GET', '/api/time-controls');
@@ -84,19 +94,24 @@
       const div = document.createElement('div');
       div.className = 'tc-option' + (i === 0 ? ' selected' : '');
       div.dataset.key = tc.key;
-      div.innerHTML = `<span class="label">${tc.label}</span>`;
+      div.innerHTML = `<span class="label">${tc.label}</span><span class="tc-rating">${ratingFor(tc.category)}</span>`;
       div.addEventListener('click', () => {
         document.querySelectorAll('.tc-option').forEach(el => el.classList.remove('selected'));
         div.classList.add('selected');
         selectedTc = tc.key;
+        $('userRating').textContent = ratingFor(tc.category);
       });
       list.appendChild(div);
     });
-    if (tcs.length) selectedTc = tcs[0].key;
+    if (tcs.length) {
+      selectedTc = tcs[0].key;
+      $('userRating').textContent = ratingFor(tcs[0].category);
+    }
   }
 
-  async function loadLeaderboard() {
-    const { leaderboard } = await api('GET', '/api/leaderboard');
+  async function loadLeaderboard(category) {
+    if (category) leaderboardCategory = category;
+    const { leaderboard } = await api('GET', '/api/leaderboard?category=' + leaderboardCategory);
     const body = $('leaderboardBody');
     body.innerHTML = '';
     leaderboard.forEach((u, i) => {
@@ -105,6 +120,14 @@
       body.appendChild(tr);
     });
   }
+
+  $('leaderboardTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-category]');
+    if (!btn) return;
+    document.querySelectorAll('#leaderboardTabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadLeaderboard(btn.dataset.category);
+  });
 
   async function loadMyGames() {
     const { games } = await api('GET', '/api/my-games');
@@ -187,7 +210,8 @@
     $('lobbyView').classList.remove('hidden');
     $('userBadge').classList.remove('hidden');
     $('userName').textContent = currentUser.username;
-    $('userRating').textContent = currentUser.rating;
+    // Puan rozeti loadTimeControls() içinde, ilk (varsayılan seçili) süre
+    // kontrolünün kategorisine göre dolduruluyor.
     connectSse();
     await Promise.all([loadTimeControls(), loadLeaderboard(), loadMyGames()]);
     const activeGameId = await checkActiveGame();
