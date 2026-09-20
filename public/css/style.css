@@ -339,6 +339,17 @@ input:focus { outline: 2px solid var(--accent); }
 
 .square.last-move { background-image: linear-gradient(rgba(255, 215, 0, 0.28), rgba(255, 215, 0, 0.28)); }
 
+/* Şah çekilen tarafın kralının bulunduğu kare — lichess'teki gibi ortadan
+   dışa doğru solan kırmızı bir parlama. Hem oyun tahtasında (game.js) hem
+   analiz tahtasında (analysis.js) aynı sınıf kullanılıyor. */
+.square.in-check {
+  background-image: radial-gradient(ellipse at center,
+    rgba(255, 0, 0, 0.9) 0%,
+    rgba(231, 0, 0, 0.75) 25%,
+    rgba(169, 0, 0, 0.4) 50%,
+    rgba(158, 0, 0, 0) 80%);
+}
+
 .side-panel {
   width: 300px;
   display: flex;

@@ -395,7 +395,10 @@ async function handleApi(req, res, pathname, url) {
         const fen = await analysisEngine.getFenAfterMoves(info.startFen, moveList);
         if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
         const legalMoves = await analysisEngine.getLegalMoves(fen);
-        return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w ') });
+        // İstemcinin, tehdit altındaki şahın karesini kırmızı gösterebilmesi
+        // için bu pozisyonda şah çekiliyor mu bilgisi de dönüyor.
+        const inCheck = await analysisEngine.isInCheck(fen);
+        return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w '), inCheck });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

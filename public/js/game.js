@@ -85,6 +85,21 @@
     return { r, c };
   }
 
+  // Tehdit altındaki (şah çekilen) tarafın şahının bulunduğu kareyi bulur —
+  // FEN'in "sırası kimde" alanına bakıyoruz, çünkü şah çekilmesi HER ZAMAN
+  // sırası gelen tarafın başına gelir (bir hamle, kendi şahını çekilir
+  // hâlde bırakamaz). state.inCheck sunucudan geliyor (bkz. gameManager.js).
+  function findCheckedKingSquare(grid, fen) {
+    const activeColor = fen.split(' ')[1];
+    const kingChar = activeColor === 'w' ? 'K' : 'k';
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        if (grid[r][c] === kingChar) return { r, c };
+      }
+    }
+    return null;
+  }
+
   // ---------------- Tahta çizimi ----------------
 
   const boardEl = $('board');
@@ -117,6 +132,7 @@
       lastFrom = lastMove.slice(0, 2);
       lastTo = lastMove.slice(2, 4);
     }
+    const checkedKing = state.inCheck ? findCheckedKingSquare(grid, state.currentFen) : null;
 
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
@@ -129,6 +145,7 @@
         const sq = squareName(r, c);
         el.classList.toggle('selected', selected === sq);
         el.classList.toggle('last-move', sq === lastFrom || sq === lastTo);
+        el.classList.toggle('in-check', !!checkedKing && checkedKing.r === r && checkedKing.c === c);
 
         const isLegalDest = selected && legalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
         el.classList.toggle('legal-dest', !!isLegalDest);
