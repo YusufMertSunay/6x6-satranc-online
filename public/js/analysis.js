@@ -139,13 +139,88 @@
 
         const isLegalDest = selected && currentLegalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
         el.classList.toggle('legal-dest', !!isLegalDest);
-
-        const isBestFrom = bestMoveHighlight && sq === bestMoveHighlight.from;
-        const isBestTo = bestMoveHighlight && sq === bestMoveHighlight.to;
-        el.classList.toggle('best-move-from', !!isBestFrom);
-        el.classList.toggle('best-move-to', !!isBestTo);
       }
     }
+
+    drawBestMoveArrow();
+  }
+
+  // Kare adını (ör. "e4") satır/sütun indeksine çevirir — motorun önerdiği
+  // en iyi hamlenin okunu çizerken kalkış/varış karelerinin EKRANDAKİ
+  // (flip'e göre değişebilen) konumunu bulmak için kullanılıyor.
+  function rcOfSquare(sq) {
+    const c = sq.charCodeAt(0) - 'a'.charCodeAt(0);
+    const rank = parseInt(sq.substring(1), 10);
+    const r = BOARD_SIZE - rank;
+    return { r, c };
+  }
+
+  // Motorun önerdiği en iyi hamleyi Lichess'teki gibi yarı saydam mavi bir
+  // OK ile tahtanın üzerine çizer (kare çerçevesiyle değil). Kareler
+  // flip'e göre yer değiştirebildiği için konumları CSS'ten değil,
+  // gerçek ekran koordinatlarından (getBoundingClientRect) hesaplıyoruz —
+  // böylece tahta çevrildiğinde ok da otomatik olarak doğru yerde çıkıyor.
+  function drawBestMoveArrow() {
+    const svg = $('bestMoveArrow');
+    svg.innerHTML = '';
+    if (!bestMoveHighlight) return;
+
+    const boardRect = boardEl.getBoundingClientRect();
+    if (!boardRect.width || !boardRect.height) return;
+    svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
+
+    const { r: rFrom, c: cFrom } = rcOfSquare(bestMoveHighlight.from);
+    const { r: rTo, c: cTo } = rcOfSquare(bestMoveHighlight.to);
+    const fromEl = squareEls[rFrom] && squareEls[rFrom][cFrom];
+    const toEl = squareEls[rTo] && squareEls[rTo][cTo];
+    if (!fromEl || !toEl) return;
+
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+    const x1 = fromRect.left - boardRect.left + fromRect.width / 2;
+    const y1 = fromRect.top - boardRect.top + fromRect.height / 2;
+    const x2 = toRect.left - boardRect.left + toRect.width / 2;
+    const y2 = toRect.top - boardRect.top + toRect.height / 2;
+
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const sq = fromRect.width;
+
+    // Ok ucu tam hedef karenin merkezine değil, biraz öncesine kadar
+    // uzansın ki üzerindeki taşı tamamen kapatmasın.
+    const tipX = x2 - ux * (sq * 0.12);
+    const tipY = y2 - uy * (sq * 0.12);
+    const lineEndX = tipX - ux * (sq * 0.22);
+    const lineEndY = tipY - uy * (sq * 0.22);
+
+    const color = 'rgba(21, 107, 255, 0.55)';
+    const ns = 'http://www.w3.org/2000/svg';
+
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', lineEndX);
+    line.setAttribute('y2', lineEndY);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', Math.max(6, sq * 0.14));
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+
+    const angle = Math.atan2(dy, dx);
+    const headLen = sq * 0.30;
+    const headWidth = sq * 0.24;
+    const baseX = tipX - Math.cos(angle) * headLen;
+    const baseY = tipY - Math.sin(angle) * headLen;
+    const leftX = baseX + Math.cos(angle + Math.PI / 2) * (headWidth / 2);
+    const leftY = baseY + Math.sin(angle + Math.PI / 2) * (headWidth / 2);
+    const rightX = baseX + Math.cos(angle - Math.PI / 2) * (headWidth / 2);
+    const rightY = baseY + Math.sin(angle - Math.PI / 2) * (headWidth / 2);
+
+    const head = document.createElementNS(ns, 'polygon');
+    head.setAttribute('points', `${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`);
+    head.setAttribute('fill', color);
+    svg.appendChild(head);
   }
 
   // ---------------- Kitap (gerçek oyun) takibi ----------------
