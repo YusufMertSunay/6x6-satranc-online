@@ -293,8 +293,14 @@ input:focus { outline: 2px solid var(--accent); }
   padding: 4px 14px;
   border-radius: 6px;
 }
-.player-strip .clock.low { color: var(--danger); }
 .player-strip .clock.active { background: var(--accent); color: #fff; }
+/* Süre eşiğin altına/eşitine düşünce kutucuk kırmızıya dönüyor — sıra kimde
+   olursa olsun (aktif/pasif fark etmeksizin) okunur kalması için hep beyaz
+   metinle. Aynı sınıf hem oyun ekranında (canlı, saniye saniye) hem analiz
+   tahtasında (o hamledeki geçmiş değere göre) kullanılıyor. Bu kural
+   ".active"tan SONRA geliyor ki, sırası kendindeyken süresi azalan
+   oyuncunun kutucuğu yeşil değil KIRMIZI kalsın. */
+.player-strip .clock.low { background: var(--danger); color: #fff; }
 
 #board {
   display: grid;

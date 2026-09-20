@@ -26,6 +26,10 @@
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — bkz. lib/store.js.
   const CATEGORY_LABELS = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classical: 'Klasik' };
 
+  // Süre kutucuğunun "az kaldı" (kırmızı) uyarısına geçeceği eşik, kategoriye
+  // göre değişiyor: Bullet'te 10 sn, Blitz'te 30 sn, Rapid ve Klasik'te 1 dk.
+  const LOW_TIME_MS = { bullet: 10000, blitz: 30000, rapid: 60000, classical: 60000 };
+
   const params = new URLSearchParams(window.location.search);
   const gameId = params.get('id');
   const $ = (id) => document.getElementById(id);
@@ -295,8 +299,12 @@
     myEl.textContent = formatMs(myMs);
     oppEl.textContent = formatMs(oppMs);
 
-    myEl.classList.toggle('low', myMs < 30000);
-    oppEl.classList.toggle('low', oppMs < 30000);
+    // Süre kutucuğu, o oyunun süre kontrolü KATEGORİSİNE ait eşiğin altına
+    // (veya eşitine) düşünce kırmızıya dönüyor — ister kendi süren ister
+    // rakibinki olsun, ilgili kutucuk kırmızı gösteriliyor.
+    const lowThreshold = LOW_TIME_MS[state.timeControlCategory] ?? 30000;
+    myEl.classList.toggle('low', myMs <= lowThreshold);
+    oppEl.classList.toggle('low', oppMs <= lowThreshold);
 
     const myActive = state.status === 'active' && myTurn();
     const oppActive = state.status === 'active' && !myTurn();

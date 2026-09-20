@@ -46,6 +46,12 @@
   let whiteRating = null, blackRating = null;
   let startFen = null;
   let clockHistory = []; // clockHistory[k] = k hamle oynanmışken geçerli olan saatler (bkz. gameManager.js)
+  let timeControlCategory = 'bullet';
+
+  // Süre kutucuğunun "az kaldı" (kırmızı) uyarısına geçeceği eşik, kategoriye
+  // göre değişiyor: Bullet'te 10 sn, Blitz'te 30 sn, Rapid ve Klasik'te 1 dk
+  // — oyun ekranındaki (game.js) eşiklerle BİREBİR AYNI.
+  const LOW_TIME_MS = { bullet: 10000, blitz: 30000, rapid: 60000, classical: 60000 };
 
   let bookMoves = [];   // oyunun GERÇEKTE oynanmış hamleleri (UCI) — SABİT
   let bookSan = [];     // aynı hamlelerin SAN gösterimi — SABİT
@@ -442,6 +448,8 @@
     if (!clockHistory || !clockHistory.length) {
       $('bottomClock').textContent = '--:--';
       $('topClock').textContent = '--:--';
+      $('bottomClock').classList.remove('low');
+      $('topClock').classList.remove('low');
       return;
     }
     // appliedMoves.length, o anki pozisyonda kaç GERÇEK/varsayılan hamle
@@ -454,8 +462,16 @@
     const bottomColor = flipped ? 'black' : 'white';
     const topColor = flipped ? 'white' : 'black';
     const msFor = (color) => color === 'white' ? snap.whiteClockMs : snap.blackClockMs;
-    $('bottomClock').textContent = formatMs(msFor(bottomColor));
-    $('topClock').textContent = formatMs(msFor(topColor));
+    const bottomMs = msFor(bottomColor);
+    const topMs = msFor(topColor);
+    $('bottomClock').textContent = formatMs(bottomMs);
+    $('topClock').textContent = formatMs(topMs);
+
+    // O pozisyondaki saat, kategoriye ait eşiğin altındaysa (ya da eşitse)
+    // kutucuk kırmızı gösteriliyor — oyun ekranındakiyle aynı mantık.
+    const lowThreshold = LOW_TIME_MS[timeControlCategory] ?? 30000;
+    $('bottomClock').classList.toggle('low', bottomMs <= lowThreshold);
+    $('topClock').classList.toggle('low', topMs <= lowThreshold);
   }
 
   function renderStatus() {
@@ -686,11 +702,11 @@
     whiteRating = typeof info.whiteRating === 'number' ? info.whiteRating : null;
     blackRating = typeof info.blackRating === 'number' ? info.blackRating : null;
     clockHistory = info.clockHistory || [];
+    timeControlCategory = info.timeControlCategory || 'bullet';
 
     // Puan rozeti bu oyunun süre kontrolü kategorisine ait puanı gösteriyor
     // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
-    const myCategory = info.timeControlCategory || 'bullet';
-    $('userRating').textContent = (me.ratings && me.ratings[myCategory]) ?? '-';
+    $('userRating').textContent = (me.ratings && me.ratings[timeControlCategory]) ?? '-';
 
     myColor = me.id === whiteId ? 'white' : (me.id === blackId ? 'black' : null);
     flipped = myColor === 'black';
