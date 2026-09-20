@@ -411,8 +411,15 @@
   function renderPlayerNames() {
     const myName = myColor === 'white' ? state.whiteUsername : state.blackUsername;
     const oppName = myColor === 'white' ? state.blackUsername : state.whiteUsername;
+    const myRating = myColor === 'white' ? state.whiteRating : state.blackRating;
+    const oppRating = myColor === 'white' ? state.blackRating : state.whiteRating;
     $('bottomName').textContent = (myName || me.username) + ' (Sen)';
     $('topName').textContent = oppName || 'Rakip';
+    // İsimlerin yanında, bu oyunun süre kontrolü KATEGORİSİNE ait Elo puanı
+    // (hem kendimin hem rakibimin) gösteriliyor — bkz. server.js'de
+    // eklenen state.whiteRating/blackRating.
+    $('bottomRating').textContent = typeof myRating === 'number' ? myRating : '';
+    $('topRating').textContent = typeof oppRating === 'number' ? oppRating : '';
   }
 
   function renderActionButtons() {

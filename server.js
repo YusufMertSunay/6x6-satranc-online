@@ -127,6 +127,7 @@ function getFinishedGameForUser(gameId, userId) {
       whiteId: live.whiteId,
       blackId: live.blackId,
       timeControlCategory: live.timeControlCategory,
+      clockHistory: live.clockHistory,
     };
   }
   const persisted = store.getGame(gameId);
@@ -139,6 +140,7 @@ function getFinishedGameForUser(gameId, userId) {
       whiteId: persisted.whiteId,
       blackId: persisted.blackId,
       timeControlCategory: persisted.timeControlCategory,
+      clockHistory: persisted.clockHistory,
     };
   }
   return null;
@@ -301,17 +303,33 @@ async function handleApi(req, res, pathname, url) {
       const live = gameManager.getGame(gameId);
       if (live) {
         const state = gameManager.publicState(live);
-        // İstemcinin oyuncu isimlerini gösterebilmesi için kullanıcı adlarını
-        // da ekliyoruz (canlı oyun durumunda bu bilgi motor/oyun mantığı
-        // tarafında tutulmuyor, sadece kullanıcı kimlikleri var).
+        // İstemcinin oyuncu isimlerini VE isimlerin yanında gösterilecek
+        // Elo puanlarını (bu oyunun süre kontrolü kategorisine ait) da
+        // ekliyoruz — bu bilgiler motor/oyun mantığı tarafında değil,
+        // kullanıcı kayıtlarında (store) tutuluyor.
         const whiteUser = store.getUserById(state.whiteId);
         const blackUser = store.getUserById(state.blackId);
+        const category = state.timeControlCategory || 'bullet';
         state.whiteUsername = whiteUser?.username || '?';
         state.blackUsername = blackUser?.username || '?';
+        state.whiteRating = whiteUser?.ratings?.[category] ?? 1500;
+        state.blackRating = blackUser?.ratings?.[category] ?? 1500;
         return sendJson(res, 200, { live: true, state });
       }
       const finished = store.getGame(gameId);
-      if (finished) return sendJson(res, 200, { live: false, state: finished });
+      if (finished) {
+        // Bitmiş/kalıcı hale gelmiş bir oyun için de aynı şekilde GÜNCEL
+        // (bu oyundan sonraki) Elo puanlarını ekliyoruz — store kopyasını
+        // değiştirmemek için yeni bir nesneye kopyalıyoruz.
+        const category = finished.timeControlCategory || 'bullet';
+        const whiteUser = store.getUserById(finished.whiteId);
+        const blackUser = store.getUserById(finished.blackId);
+        const state = Object.assign({}, finished, {
+          whiteRating: whiteUser?.ratings?.[category] ?? 1500,
+          blackRating: blackUser?.ratings?.[category] ?? 1500,
+        });
+        return sendJson(res, 200, { live: false, state });
+      }
       return sendJson(res, 404, { error: 'Oyun bulunamadı.' });
     }
 
@@ -374,6 +392,9 @@ async function handleApi(req, res, pathname, url) {
       if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz (oyun bitmemiş olabilir ya da bu oyunun oyuncusu değilsin).' });
       const whiteUser = store.getUserById(info.whiteId);
       const blackUser = store.getUserById(info.blackId);
+      // Elo puanı kategoriye göre ayrı tutuluyor (bkz. store.js) — isimlerin
+      // yanında gösterilecek puan da bu oyunun kategorisine ait olmalı.
+      const category = info.timeControlCategory || 'bullet';
       return sendJson(res, 200, {
         startFen: info.startFen,
         movesUci: info.movesUci,
@@ -382,7 +403,12 @@ async function handleApi(req, res, pathname, url) {
         blackId: info.blackId,
         whiteUsername: whiteUser?.username || '?',
         blackUsername: blackUser?.username || '?',
+        whiteRating: whiteUser?.ratings?.[category] ?? 1500,
+        blackRating: blackUser?.ratings?.[category] ?? 1500,
         timeControlCategory: info.timeControlCategory,
+        // İstemcinin, gezinilen her pozisyonda "o hamlede saatler ne
+        // kadardı" gösterebilmesi için tüm saat geçmişi (bkz. gameManager.js).
+        clockHistory: info.clockHistory || [],
       });
     }
 

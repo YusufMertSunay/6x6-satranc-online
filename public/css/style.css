@@ -275,6 +275,16 @@ input:focus { outline: 2px solid var(--accent); }
 }
 
 .player-strip .name { font-weight: 600; }
+.player-strip .player-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.player-strip .player-rating {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-panel-light);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
 .player-strip .clock {
   font-variant-numeric: tabular-nums;
   font-size: 22px;

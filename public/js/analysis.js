@@ -43,7 +43,9 @@
 
   let whiteId = null, blackId = null;
   let whiteUsername = '?', blackUsername = '?';
+  let whiteRating = null, blackRating = null;
   let startFen = null;
+  let clockHistory = []; // clockHistory[k] = k hamle oynanmışken geçerli olan saatler (bkz. gameManager.js)
 
   let bookMoves = [];   // oyunun GERÇEKTE oynanmış hamleleri (UCI) — SABİT
   let bookSan = [];     // aynı hamlelerin SAN gösterimi — SABİT
@@ -402,6 +404,7 @@
     renderPlayerNames();
     syncEvalBarOrientation();
     renderBoard();
+    renderClocks();
   });
 
   // ---------------- Durum metni / oyuncu isimleri ----------------
@@ -410,9 +413,49 @@
     const bottomColor = flipped ? 'black' : 'white';
     const topColor = flipped ? 'white' : 'black';
     const nameFor = (color) => color === 'white' ? whiteUsername : blackUsername;
+    const ratingFor = (color) => color === 'white' ? whiteRating : blackRating;
     const suffix = (color) => (color === myColor ? ' (Sen)' : '');
     $('bottomName').textContent = nameFor(bottomColor) + suffix(bottomColor);
     $('topName').textContent = nameFor(topColor) + suffix(topColor);
+    // İsimlerin yanında, bu oyunun süre kontrolü kategorisine ait Elo puanı
+    // (hem kendiminki hem rakibinki) gösteriliyor.
+    const bottomRating = ratingFor(bottomColor);
+    const topRating = ratingFor(topColor);
+    $('bottomRating').textContent = typeof bottomRating === 'number' ? bottomRating : '';
+    $('topRating').textContent = typeof topRating === 'number' ? topRating : '';
+  }
+
+  // ---------------- Saatler (o pozisyondaki GERÇEK saat durumu) ----------------
+  // ÖNEMLİ: Bu, canlı bir sayaç DEĞİL — analiz sırasında geriye/ileriye
+  // gidildikçe, o hamle GERÇEKTE oynandığında saatlerin ne olduğunu
+  // (sunucudan gelen clockHistory'den) sabit bir şekilde gösteriyor.
+  function formatMs(ms) {
+    if (typeof ms !== 'number' || !Number.isFinite(ms)) ms = 0;
+    if (ms < 0) ms = 0;
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function renderClocks() {
+    if (!clockHistory || !clockHistory.length) {
+      $('bottomClock').textContent = '--:--';
+      $('topClock').textContent = '--:--';
+      return;
+    }
+    // appliedMoves.length, o anki pozisyonda kaç GERÇEK/varsayılan hamle
+    // uygulandığını verir; kitaptan sapıldıysa (appliedMoves.length gerçek
+    // oyundakinden uzun olabilir) elimizdeki SON bilinen (gerçek) saat
+    // durumunu göstermeye devam ediyoruz — sapılan hamleler için saat
+    // bilgisi zaten hiç var olmadı.
+    const idx = Math.min(appliedMoves.length, clockHistory.length - 1);
+    const snap = clockHistory[idx];
+    const bottomColor = flipped ? 'black' : 'white';
+    const topColor = flipped ? 'white' : 'black';
+    const msFor = (color) => color === 'white' ? snap.whiteClockMs : snap.blackClockMs;
+    $('bottomClock').textContent = formatMs(msFor(bottomColor));
+    $('topClock').textContent = formatMs(msFor(topColor));
   }
 
   function renderStatus() {
@@ -555,6 +598,7 @@
     renderBoard();
     renderStatus();
     renderNavButtons();
+    renderClocks();
 
     $('evalLabel').textContent = 'Değerlendirme: hesaplanıyor...';
     $('pvBox').textContent = '...';
@@ -639,6 +683,9 @@
     blackId = info.blackId;
     whiteUsername = info.whiteUsername;
     blackUsername = info.blackUsername;
+    whiteRating = typeof info.whiteRating === 'number' ? info.whiteRating : null;
+    blackRating = typeof info.blackRating === 'number' ? info.blackRating : null;
+    clockHistory = info.clockHistory || [];
 
     // Puan rozeti bu oyunun süre kontrolü kategorisine ait puanı gösteriyor
     // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
