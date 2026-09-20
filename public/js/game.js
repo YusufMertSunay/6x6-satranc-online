@@ -497,6 +497,7 @@
       timeout_insufficient_material: 'Süre doldu, ancak yetersiz taş (berabere)',
       draw_agreed: 'Anlaşmalı beraberlik',
       threefold_repetition: 'Üç kez tekrar (berabere)',
+      fifty_move_rule: '50 hamle kuralı (berabere)',
     };
     return map[reason] || reason;
   }
