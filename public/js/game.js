@@ -240,6 +240,10 @@
   // ---------------- Saatler ----------------
 
   function formatMs(ms) {
+    // Eski/eksik bir kayıtta saat bilgisi hiç yoksa (ör. bu alanların henüz
+    // kaydedilmediği bir dönemden kalma bitmiş oyun) "NaN:NaN" göstermek
+    // yerine güvenli bir şekilde 0'a düşüyoruz.
+    if (typeof ms !== 'number' || !Number.isFinite(ms)) ms = 0;
     if (ms < 0) ms = 0;
     const totalSec = Math.ceil(ms / 1000);
     const m = Math.floor(totalSec / 60);
