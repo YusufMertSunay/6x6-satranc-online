@@ -190,6 +190,49 @@ async function pvToSan(fenBeforeFirstMove, pvUciMoves) {
   return sanList;
 }
 
+// Oyuncu hiç oyun oynamadan da doğrudan "serbest analiz" tahtasını
+// açabilsin diye (bkz. analysis.js: gameId olmadığında bu uçlar kullanılıyor)
+// -- oynanan hamlelerin (henüz gerçek bir oyuna ait olmadığı için) gerçek
+// notasyona (SAN) çevrilmiş halini de burada hesaplıyoruz. Mantık pvToSan
+// ile BİREBİR AYNI, tek fark: PV gibi kısa bir öneri değil, kullanıcının o
+// ana kadar OYNADIĞI TÜM hamleler (uzunluğu sınırlanmadan, bkz. MAX_PV_SAN_PLIES).
+async function freeMovesToSan(uciMoves) {
+  const sanList = [];
+  let fen = START_FEN;
+  let legalAtCurrent;
+  try {
+    legalAtCurrent = await analysisEngine.getLegalMoves(fen);
+  } catch {
+    return sanList;
+  }
+  for (const uciMove of uciMoves) {
+    let sanBody;
+    try {
+      sanBody = moveToSan(fen, uciMove, legalAtCurrent);
+    } catch {
+      break;
+    }
+    let nextFen;
+    try {
+      nextFen = await analysisEngine.getFenAfterMoves(fen, [uciMove]);
+    } catch {
+      nextFen = null;
+    }
+    if (!nextFen) { sanList.push(sanBody); break; }
+    let legalAtNext = [];
+    let inCheck = false;
+    try {
+      legalAtNext = await analysisEngine.getLegalMoves(nextFen);
+      inCheck = await analysisEngine.isInCheck(nextFen);
+    } catch { /* şah/mat işaretini atlayıp devam edelim */ }
+    const suffix = inCheck ? (legalAtNext.length === 0 ? '#' : '+') : '';
+    sanList.push(sanBody + suffix);
+    fen = nextFen;
+    legalAtCurrent = legalAtNext;
+  }
+  return sanList;
+}
+
 async function handleApi(req, res, pathname, url) {
   // ---- Kimlik doğrulama gerektirmeyen uçlar ----
   if (pathname === '/api/register' && req.method === 'POST') {
@@ -261,6 +304,76 @@ async function handleApi(req, res, pathname, url) {
 
   if (pathname === '/api/my-active-game' && req.method === 'GET') {
     return sendJson(res, 200, { gameId: gameManager.activeGameId(user.id) });
+  }
+
+  // ---- Oyunsuz "serbest analiz" tahtası ----
+  // Oyuncu hiç oyun oynamadan da analiz tahtasını başlangıç pozisyonundan
+  // açabilsin diye eklendi -- aşağıdaki üç uç, /api/game/:id/analysis-*
+  // uçlarıyla AYNI mantığı (analysisEngine üzerinden FEN/legal-move/eval
+  // hesaplama) kullanıyor, ama gerçek bir oyuna (ve o oyunun oyuncusu olma
+  // şartına) BAĞLI DEĞİL -- her zaman START_FEN'den başlıyor.
+  if (pathname === '/api/free-analysis-start' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      startFen: START_FEN,
+      movesUci: [],
+      sanMoves: [],
+      whiteId: null,
+      blackId: null,
+      whiteUsername: 'Beyaz',
+      blackUsername: 'Siyah',
+      whiteRating: null,
+      blackRating: null,
+      timeControlCategory: null,
+      clockHistory: [],
+    });
+  }
+
+  if (pathname === '/api/free-analysis-position' && req.method === 'POST') {
+    const { moves } = await readBody(req);
+    const moveList = Array.isArray(moves) ? moves : [];
+    try {
+      const fen = await analysisEngine.getFenAfterMoves(START_FEN, moveList);
+      if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+      const legalMoves = await analysisEngine.getLegalMoves(fen);
+      const inCheck = await analysisEngine.isInCheck(fen);
+      // Serbest analizde sabit bir "kitap" (gerçek oyun) olmadığı için,
+      // istemcinin hamle listesini gösterebilmesi adına o ana kadar oynanan
+      // hamlelerin GERÇEK notasyonunu (SAN) da burada hesaplayıp gönderiyoruz
+      // (oyun-bazlı analizde bu bilgi zaten analysis-start'ta bir kereye
+      // mahsus, sabit bir oyunun hamleleri için geliyordu).
+      const sanMoves = await freeMovesToSan(moveList);
+      return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w '), inCheck, sanMoves });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  if (pathname === '/api/free-analysis-evaluate' && req.method === 'POST') {
+    const { moves } = await readBody(req);
+    const moveList = Array.isArray(moves) ? moves : [];
+    try {
+      const fen = await analysisEngine.getFenAfterMoves(START_FEN, moveList);
+      if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+      const whiteToMove = fen.includes(' w ');
+      const legalMoves = await analysisEngine.getLegalMoves(fen);
+
+      if (legalMoves.length === 0) {
+        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: true, insufficientMaterial: false, result: null });
+      }
+      if (isInsufficientMaterial(fen)) {
+        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: true, result: null });
+      }
+
+      const result = await analysisEngine.analyze(fen, ANALYSIS_MOVETIME_MS);
+      let sanPv = [];
+      if (result && result.pv && result.pv.length) {
+        try { sanPv = await pvToSan(fen, result.pv); } catch { sanPv = []; }
+      }
+      if (result) result.sanPv = sanPv;
+      return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
   }
 
   if (pathname === '/events' && req.method === 'GET') {

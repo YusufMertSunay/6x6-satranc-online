@@ -32,9 +32,15 @@
   const gameId = params.get('id');
   const $ = (id) => document.getElementById(id);
 
-  if (!gameId) {
-    window.location.href = '/';
-    return;
+  // gameId YOKSA: oyuncu hiç oyun oynamadan doğrudan "serbest analiz"
+  // tahtasını açmış demektir -- bu durumda gerçek bir oyuna bağlı olmayan,
+  // START_FEN'den (başlangıç pozisyonundan) başlayan uçlar (server.js:
+  // /api/free-analysis-*) kullanılıyor.
+  const freeMode = !gameId;
+
+  // Analiz uçlarının (start/position/evaluate) yolunu moda göre seçer.
+  function analysisPath(sub) {
+    return freeMode ? ('/api/free-' + sub) : `/api/game/${gameId}/${sub}`;
   }
 
   let me = null;
@@ -624,7 +630,10 @@
     const box = $('statusBox');
     const onBook = isOnBook();
     const turnText = currentWhiteToMove ? 'Sırada: Beyaz' : 'Sırada: Siyah';
-    const noteText = onBook ? '' : ' — kitaptan sapıldı (bu hamleler gerçek oyunda oynanmadı)';
+    // "Kitaptan sapıldı" uyarısı SADECE gerçek bir oyunun analizinde anlamlı
+    // (freeMode'da zaten sabit bir "kitap" yok, bookMoves her zaman
+    // appliedMoves'a eşitleniyor — bkz. refreshPosition).
+    const noteText = (!freeMode && !onBook) ? ' — kitaptan sapıldı (bu hamleler gerçek oyunda oynanmadı)' : '';
     box.textContent = turnText + noteText;
   }
 
@@ -743,7 +752,7 @@
 
     let posData;
     try {
-      posData = await api('POST', `/api/game/${gameId}/analysis-position`, { moves: appliedMoves });
+      posData = await api('POST', analysisPath('analysis-position'), { moves: appliedMoves });
     } catch (err) {
       if (myGen !== generation) return;
       $('statusBox').textContent = 'Pozisyon hesaplanamadı: ' + err.message;
@@ -757,6 +766,17 @@
     currentInCheck = !!posData.inCheck;
     bestMoveHighlight = null;
 
+    if (freeMode) {
+      // Serbest analizde sabit bir "kitap" (gerçek oyun) yok -- o ana kadar
+      // OYNANAN hamlelerin kendisi kitap sayılır (sunucu her pozisyon
+      // isteğinde güncel SAN listesini de gönderiyor, bkz. server.js
+      // /api/free-analysis-position). Bu sayede "kitaptan sapıldı" uyarısı
+      // hiç görünmez ve hamle listesi oynadıkça doğru şekilde güncellenir.
+      bookMoves = appliedMoves.slice();
+      bookSan = posData.sanMoves || [];
+      renderMoveList();
+    }
+
     renderBoard();
     renderStatus();
     renderNavButtons();
@@ -767,7 +787,7 @@
 
     let evalData;
     try {
-      evalData = await api('POST', `/api/game/${gameId}/analysis-evaluate`, { moves: appliedMoves });
+      evalData = await api('POST', analysisPath('analysis-evaluate'), { moves: appliedMoves });
     } catch (err) {
       if (myGen !== generation) return;
       $('evalLabel').textContent = 'Değerlendirme alınamadı: ' + err.message;
@@ -832,7 +852,7 @@
 
     let info;
     try {
-      info = await api('GET', `/api/game/${gameId}/analysis-start`);
+      info = await api('GET', analysisPath('analysis-start'));
     } catch (err) {
       $('statusBox').textContent = 'Analiz açılamadı: ' + err.message;
       return;
@@ -848,16 +868,26 @@
     whiteRating = typeof info.whiteRating === 'number' ? info.whiteRating : null;
     blackRating = typeof info.blackRating === 'number' ? info.blackRating : null;
     clockHistory = info.clockHistory || [];
-    timeControlCategory = info.timeControlCategory || 'bullet';
+    // Serbest analizde (freeMode) gerçek bir süre kontrolü kategorisi yok --
+    // bunu 'bullet'a düşürürsek puan rozeti YANLIŞLIKLA kullanıcının bullet
+    // puanını gösterirdi; bu yüzden freeMode'da bilerek null bırakıyoruz.
+    timeControlCategory = freeMode ? null : (info.timeControlCategory || 'bullet');
 
     // Puan rozeti bu oyunun süre kontrolü kategorisine ait puanı gösteriyor
     // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
-    $('userRating').textContent = (me.ratings && me.ratings[timeControlCategory]) ?? '-';
+    // freeMode'da kategori olmadığı için rozet boş ('-') kalır.
+    $('userRating').textContent = (timeControlCategory && me.ratings) ? (me.ratings[timeControlCategory] ?? '-') : '-';
 
     myColor = me.id === whiteId ? 'white' : (me.id === blackId ? 'black' : null);
     flipped = myColor === 'black';
 
-    $('backLink').href = '/game.html?id=' + gameId;
+    if (freeMode) {
+      // Gerçek bir oyuna bağlı olmadığımız için "Oyuna dön" linkinin bir
+      // anlamı yok -- gizleyip yanındaki "Lobiye dön" linkini bırakıyoruz.
+      $('backLink').classList.add('hidden');
+    } else {
+      $('backLink').href = '/game.html?id=' + gameId;
+    }
 
     buildBoardSkeleton();
     renderPlayerNames();
