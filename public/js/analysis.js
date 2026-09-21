@@ -72,6 +72,14 @@
   let generation = 0; // her navigasyonda artar; eski (gecikmiş) motor cevapları bununla elenir
   let bestMoveHighlight = null; // { from, to } ya da null
 
+  // Motor artık bir pozisyon için TOPLAM 9 saniye (kesintisiz) düşünüp bu
+  // süre boyunca birkaç kez ARA GÜNCELLEME gönderiyor (bkz. server.js:
+  // streamAnalysisEvaluate) -- kullanıcı hızlıca başka bir pozisyona
+  // geçerse, hâlâ süren ÖNCEKİ isteği burada saklanan AbortController ile
+  // iptal ediyoruz ki sunucudaki motor boşuna 9 saniyeye kadar meşgul
+  // kalmasın (bkz. streamEval).
+  let currentEvalAbort = null;
+
   // ---------------- Sürükle-bırak (drag & drop) durumu ----------------
   // Oyun ekranındaki (game.js) ile birebir aynı mantık: taşları tıklayarak
   // VEYA sürükleyerek oynatabilmek için Pointer Events kullanıyoruz; küçük
@@ -96,6 +104,60 @@
       throw err;
     }
     return json;
+  }
+
+  // Değerlendirme (analysis-evaluate) artık TEK bir JSON cevabı değil,
+  // sunucunun motor 9 saniye boyunca düşünürken 1/3/5/7/9. saniyelerde
+  // yazdığı BİRDEN ÇOK JSON satırı (NDJSON -- her satır kendi başına geçerli
+  // bir JSON nesnesi) olarak akıyor (bkz. server.js: streamAnalysisEvaluate).
+  // Bu fonksiyon her satır geldikçe onUpdate(chunk) çağırıyor -- çağıran
+  // taraf (refreshPosition), her çağrıda ekranı (en iyi hamle oku + PV
+  // kutucuğu) güncelliyor, böylece motor hâlâ düşünürken sonuç birkaç kez
+  // güncellenmiş oluyor (masaüstü/WinForms uygulamasındaki davranışla aynı).
+  //
+  // Kullanıcı hızlıca başka bir pozisyona geçerse (yeni bir refreshPosition
+  // çağrısı bu fonksiyonu tekrar çağırırsa), ÖNCEKİ isteği currentEvalAbort
+  // ile iptal ediyoruz -- hem burada gelecek eski/gecikmiş güncellemeleri
+  // görmezden gelmek için hem de SUNUCUDAKİ motorun artık kimsenin
+  // beklemediği bir hesaplamayla 9 saniyeye kadar meşgul kalmaması için
+  // (sunucu tarafı bunu req'in 'close' olayından anlayıp motoru erken
+  // durduruyor, bkz. server.js).
+  async function streamEval(pathname, body, onUpdate) {
+    if (currentEvalAbort) { try { currentEvalAbort.abort(); } catch { /* zaten bitmiş olabilir */ } }
+    const abortController = new AbortController();
+    currentEvalAbort = abortController;
+
+    const res = await fetch(pathname, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: abortController.signal,
+    });
+    if (!res.ok) {
+      let json = null; try { json = await res.json(); } catch { }
+      const err = new Error((json && json.error) || 'Bilinmeyen hata');
+      err.payload = json;
+      err.status = res.status;
+      throw err;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIdx;
+      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIdx);
+        buffer = buffer.slice(newlineIdx + 1);
+        if (!line.trim()) continue;
+        let chunk;
+        try { chunk = JSON.parse(line); } catch { continue; }
+        onUpdate(chunk);
+      }
+    }
   }
 
   function fenToGrid(fen) {
@@ -780,6 +842,19 @@
     renderNavButtons();
     renderMoveList();
 
+    // ÖNEMLİ: önceki (hâlâ sürüyor olabilecek, motoru 9 saniyeye kadar
+    // meşgul edebilecek) bir değerlendirme isteği varsa BURADA, pozisyon
+    // isteğini göndermeden ÖNCE iptal ediyoruz -- yoksa aşağıdaki
+    // analysis-position isteği, analysisEngine'i hâlâ meşgul eden ESKİ
+    // değerlendirme görevi bitene kadar (motoru yeniden kullanmak için)
+    // gereksiz yere sırada bekleyebilir (streamEval() kendi içinde de aynı
+    // iptali yapıyor, ama o zamana kadar pozisyon isteği zaten kuyrukta
+    // takılmış olurdu).
+    if (currentEvalAbort) {
+      try { currentEvalAbort.abort(); } catch { /* zaten bitmiş olabilir */ }
+      currentEvalAbort = null;
+    }
+
     let posData;
     try {
       posData = await api('POST', analysisPath('analysis-position'), { moves: appliedMoves });
@@ -815,17 +890,24 @@
     $('evalLabel').textContent = 'Değerlendirme: hesaplanıyor...';
     $('pvBox').textContent = '...';
 
-    let evalData;
     try {
-      evalData = await api('POST', analysisPath('analysis-evaluate'), { moves: appliedMoves });
+      await streamEval(analysisPath('analysis-evaluate'), { moves: appliedMoves }, (chunk) => {
+        // Motor hâlâ 9 saniyelik düşünmesini sürdürürken bu callback 1/3/5/7/9.
+        // saniyelerde birkaç kez çağrılıyor -- her çağrıda ekranı (en iyi
+        // hamle oku + PV kutucuğu) GÜNCELLİYORUZ, en son (final:true) çağrı
+        // motorun nihai kararını yansıtıyor.
+        if (myGen !== generation) return;
+        renderEval(chunk);
+      });
     } catch (err) {
       if (myGen !== generation) return;
+      // AbortError, kullanıcı başka bir pozisyona geçtiği için BİZİM
+      // kendimizin iptal ettiği (streamEval içinde) önceki istekten geliyor
+      // -- bu gerçek bir hata değil, sessizce yoksayıyoruz (yeni
+      // refreshPosition çağrısı zaten kendi güncellemesini gönderecek).
+      if (err.name === 'AbortError') return;
       $('evalLabel').textContent = 'Değerlendirme alınamadı: ' + err.message;
-      return;
     }
-    if (myGen !== generation) return;
-
-    renderEval(evalData);
   }
 
   // ---------------- Tahta renkleri (oyun sayfasıyla aynı, ortak ayar) ----------------

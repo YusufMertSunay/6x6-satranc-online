@@ -26,11 +26,16 @@ const PORT = process.env.PORT || 3000;
 const ENGINE_PATH = path.join(__dirname, 'engine', 'fairy-stockfish');
 const VARIANTS_PATH = path.join(__dirname, 'engine', 'variants.ini');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-// Oyun sonrası analiz tahtasının motoru bekleteceği süre (ms). Kısa tutuluyor
-// çünkü bu, CANLI OYUN motorundan AYRI bir süreç olsa da, aynı sunucunun
-// CPU'sunu paylaşıyor — çok uzun bir "düşünme süresi" analiz isteyen bir
-// kullanıcı varken diğer kullanıcıların canlı oyunlarını yavaşlatabilir.
-const ANALYSIS_MOVETIME_MS = 1200;
+// Analiz tahtasında motorun bir pozisyon için TOPLAM ne kadar düşüneceği ve
+// bu düşünme sırasında hangi ARA anlarda (motoru KESİNTİYE UĞRATMADAN, aynı
+// aramanın içinde) "şu ana kadar bulduğun en iyi hamle/varyant nedir" diye
+// soracağımız (masaüstü/WinForms uygulamasındaki davranışla aynı: motor tek
+// seferde giderek derinleşen bir arama yapıyor, biz sadece ara sıra
+// çıktısını okuyup istemciye ilerleme olarak gönderiyoruz). Son değer
+// (ANALYSIS_TOTAL_MS) toplam düşünme süresi, ondan öncekiler ARA
+// güncelleme anları -- bkz. lib/engine.js: analyzeProgressive.
+const ANALYSIS_CHECKPOINTS_MS = [1000, 3000, 5000, 7000];
+const ANALYSIS_TOTAL_MS = 9000;
 // Motorun önerdiği varyant (PV) bazen çok uzun olabiliyor (20-30 yarı hamle);
 // bunların HER BİRİNİ gerçek notasyona (SAN) çevirmek için motora ekstra
 // sorular sormamız gerekiyor (bkz. pvToSan) — hem gösterimi okunaksız
@@ -47,6 +52,14 @@ const engine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
 // beklemesin diye (aksi halde tek bir paylaşılan motor kuyruğu, biri analiz
 // yaparken diğer oyuncuların hamlelerini geciktirirdi).
 const analysisEngine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
+// Analiz motoru artık bir pozisyon için TOPLAM 9 saniye (yukarıdaki
+// ANALYSIS_TOTAL_MS) boyunca meşgul kalıyor -- bu sırada PV'yi gerçek
+// notasyona (SAN) çevirmek için AYNI motora ek sorular (getLegalMoves vb.)
+// gönderirsek, bu sorular 9 saniyelik aramanın kuyruğunda bekleyip ARA
+// güncellemeleri anlamsız derecede geciktirirdi. Bu yüzden SADECE notasyon
+// (SAN) çevirisi için üçüncü, küçük ve her zaman BOŞTA olan ayrı bir motor
+// süreci kullanıyoruz.
+const notationEngine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
 let gameManager = null;
 
 function sendJson(res, status, obj) {
@@ -152,13 +165,21 @@ function getFinishedGameForUser(gameId, userId) {
 // İKİNCİ bir kural motoru olarak sormuyoruz; sadece her ara pozisyonun
 // FEN'ini ve o pozisyondaki yasal hamleleri (belirsizlik giderme ve
 // şah/mat işareti için) soruyoruz — hamlelerin kendisini zaten motor önerdi.
-async function pvToSan(fenBeforeFirstMove, pvUciMoves) {
+//
+// engineForQueries PARAMETRELİ: analiz motoru (analysisEngine) bir pozisyon
+// için TOPLAM 9 saniye boyunca meşgul olabildiğinden (bkz.
+// ANALYSIS_TOTAL_MS), ARA güncellemelerin notasyonunu bu motora sormak
+// dokuz saniyelik kuyruğun ARKASINDA beklemek anlamına gelirdi -- bu yüzden
+// çağıran taraf, arama HÂLÂ SÜRERKEN yapılan ara güncellemeler için her
+// zaman BOŞTA olan notationEngine'i, arama BİTTİKTEN SONRAKİ nihai sonuç
+// için ise (motor zaten boşaldığından) analysisEngine'i geçirebiliyor.
+async function pvToSan(engineForQueries, fenBeforeFirstMove, pvUciMoves) {
   const sanList = [];
   let fen = fenBeforeFirstMove;
   const limited = pvUciMoves.slice(0, MAX_PV_SAN_PLIES);
   let legalAtCurrent;
   try {
-    legalAtCurrent = await analysisEngine.getLegalMoves(fen);
+    legalAtCurrent = await engineForQueries.getLegalMoves(fen);
   } catch {
     return sanList; // motor cevap veremezse boş liste dön — istemci UCI'ya düşer
   }
@@ -171,7 +192,7 @@ async function pvToSan(fenBeforeFirstMove, pvUciMoves) {
     }
     let nextFen;
     try {
-      nextFen = await analysisEngine.getFenAfterMoves(fen, [uciMove]);
+      nextFen = await engineForQueries.getFenAfterMoves(fen, [uciMove]);
     } catch {
       nextFen = null;
     }
@@ -179,8 +200,8 @@ async function pvToSan(fenBeforeFirstMove, pvUciMoves) {
     let legalAtNext = [];
     let inCheck = false;
     try {
-      legalAtNext = await analysisEngine.getLegalMoves(nextFen);
-      inCheck = await analysisEngine.isInCheck(nextFen);
+      legalAtNext = await engineForQueries.getLegalMoves(nextFen);
+      inCheck = await engineForQueries.isInCheck(nextFen);
     } catch { /* şah/mat işaretini atlayıp devam edelim */ }
     const suffix = inCheck ? (legalAtNext.length === 0 ? '#' : '+') : '';
     sanList.push(sanBody + suffix);
@@ -231,6 +252,110 @@ async function freeMovesToSan(uciMoves) {
     legalAtCurrent = legalAtNext;
   }
   return sanList;
+}
+
+// Bir pozisyonu MOTORUN KESİNTİSİZ 9 SANİYE DÜŞÜNMESİYLE değerlendirir ve
+// sonucu istemciye TEK bir HTTP yanıtı üzerinden, satır satır (NDJSON --
+// "newline-delimited JSON") AKIŞ halinde gönderir: ANALYSIS_CHECKPOINTS_MS
+// (1/3/5/7. saniyeler) her birinde o ana kadar bulunan en iyi hamle/skor/
+// varyantı bir ARA GÜNCELLEME satırı olarak, ANALYSIS_TOTAL_MS (9.
+// saniye) sonunda ise NİHAİ sonucu ({..., final:true}) yazıyoruz. Böylece
+// istemcideki "en iyi hamle" oku ve PV kutucuğu, motor HÂLÂ düşünürken
+// birden çok kez güncellenebiliyor -- masaüstü/WinForms uygulamasındaki
+// davranışla aynı fikir: motor TEK bir kesintisiz aramayla giderek daha
+// isabetli hamleler buluyor, biz sadece ara sıra çıktısını okuyoruz.
+//
+// İstemci bu isteği iptal ederse (ör. kullanıcı başka bir pozisyona geçtiği
+// için fetch'i abort ettiyse), req'in 'close' olayı üzerinden motora ERKEN
+// durmasını söylüyoruz (cancelTask) -- böylece analysisEngine'in kuyruğu
+// artık kimsenin beklemediği bir hesaplamayla gereksiz yere 9 saniye MEŞGUL
+// kalmıyor (aksi halde sonraki her navigasyon 9 saniyeye kadar birikirdi).
+async function streamAnalysisEvaluate(req, res, startFen, moveList) {
+  let fen;
+  try {
+    fen = await analysisEngine.getFenAfterMoves(startFen, moveList);
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+  if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+  const whiteToMove = fen.includes(' w ');
+
+  let legalMoves;
+  try {
+    legalMoves = await analysisEngine.getLegalMoves(fen);
+  } catch (err) {
+    return sendJson(res, 500, { error: err.message });
+  }
+
+  if (legalMoves.length === 0) {
+    return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: true, insufficientMaterial: false, result: null, final: true });
+  }
+  if (isInsufficientMaterial(fen)) {
+    return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: true, result: null, final: true });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'application/x-ndjson; charset=utf-8',
+    'Cache-Control': 'no-cache',
+  });
+
+  // Ara güncellemelerin SAN çevirisi asenkron olduğundan (notationEngine'e
+  // birkaç istek atıyor), yazmaları bu zincirle SIRALI tutuyoruz -- yoksa
+  // iki güncelleme üst üste binip NDJSON satırları karışabilir.
+  let writeChain = Promise.resolve();
+  const sendChunk = (result, isFinal, engineForSan) => {
+    writeChain = writeChain.then(async () => {
+      if (res.writableEnded) return;
+      let sanPv = [];
+      if (result && result.pv && result.pv.length) {
+        try { sanPv = await pvToSan(engineForSan, fen, result.pv); } catch { sanPv = []; }
+      }
+      if (res.writableEnded) return;
+      const payload = {
+        fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false,
+        result: result ? Object.assign({}, result, { sanPv }) : null,
+        final: isFinal,
+      };
+      try { res.write(JSON.stringify(payload) + '\n'); } catch { /* bağlantı zaten kapanmışsa yoksay */ }
+      if (isFinal && !res.writableEnded) res.end();
+    });
+  };
+
+  const { token, promise } = analysisEngine.analyzeProgressive(
+    fen,
+    ANALYSIS_CHECKPOINTS_MS,
+    ANALYSIS_TOTAL_MS,
+    // ARA güncellemelerin notasyonu HER ZAMAN BOŞTA olan notationEngine'den
+    // geliyor -- analysisEngine bu sırada zaten 9 saniyelik aramayla meşgul.
+    (partial) => sendChunk(partial, false, notationEngine)
+  );
+
+  // ÖNEMLİ: burada req.on('close') DEĞİL, res.on('close') dinliyoruz.
+  // Ölçerek doğruladık: bu noktaya gelmeden önce istek gövdesi zaten
+  // tamamen okunmuş (readBody) olduğundan, req'in 'close' olayı istemci
+  // bağlantıyı erken keserse (fetch abort) GÜVENİLİR şekilde ATEŞLENMİYOR
+  // -- res'in 'close' olayı ise (yanıt daha tamamlanmadan bağlantı
+  // koptuğunda) her durumda güvenilir şekilde tetikleniyor.
+  const onClose = () => {
+    if (!res.writableEnded) analysisEngine.cancelTask(token);
+  };
+  res.on('close', onClose);
+
+  try {
+    const finalResult = await promise;
+    // Arama artık BİTTİĞİ (motor boşaldığı) için nihai sonucun notasyonunu
+    // analysisEngine'in kendisinden isteyebiliyoruz.
+    sendChunk(finalResult, true, analysisEngine);
+  } catch (err) {
+    if (!res.writableEnded) {
+      try {
+        res.write(JSON.stringify({ fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result: null, final: true, error: err.message }) + '\n');
+      } catch { /* yazma başarısız olursa (bağlantı zaten kapanmışsa) yoksay */ }
+      res.end();
+    }
+  } finally {
+    res.removeListener('close', onClose);
+  }
 }
 
 async function handleApi(req, res, pathname, url) {
@@ -351,29 +476,7 @@ async function handleApi(req, res, pathname, url) {
   if (pathname === '/api/free-analysis-evaluate' && req.method === 'POST') {
     const { moves } = await readBody(req);
     const moveList = Array.isArray(moves) ? moves : [];
-    try {
-      const fen = await analysisEngine.getFenAfterMoves(START_FEN, moveList);
-      if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
-      const whiteToMove = fen.includes(' w ');
-      const legalMoves = await analysisEngine.getLegalMoves(fen);
-
-      if (legalMoves.length === 0) {
-        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: true, insufficientMaterial: false, result: null });
-      }
-      if (isInsufficientMaterial(fen)) {
-        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: true, result: null });
-      }
-
-      const result = await analysisEngine.analyze(fen, ANALYSIS_MOVETIME_MS);
-      let sanPv = [];
-      if (result && result.pv && result.pv.length) {
-        try { sanPv = await pvToSan(fen, result.pv); } catch { sanPv = []; }
-      }
-      if (result) result.sanPv = sanPv;
-      return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result });
-    } catch (err) {
-      return sendJson(res, 500, { error: err.message });
-    }
+    return streamAnalysisEvaluate(req, res, START_FEN, moveList);
   }
 
   if (pathname === '/events' && req.method === 'GET') {
@@ -548,33 +651,7 @@ async function handleApi(req, res, pathname, url) {
       if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz.' });
       const { moves } = await readBody(req);
       const moveList = Array.isArray(moves) ? moves : [];
-      try {
-        const fen = await analysisEngine.getFenAfterMoves(info.startFen, moveList);
-        if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
-        const whiteToMove = fen.includes(' w ');
-        const legalMoves = await analysisEngine.getLegalMoves(fen);
-
-        if (legalMoves.length === 0) {
-          return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: true, insufficientMaterial: false, result: null });
-        }
-        if (isInsufficientMaterial(fen)) {
-          return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: true, result: null });
-        }
-
-        const result = await analysisEngine.analyze(fen, ANALYSIS_MOVETIME_MS);
-        // PV'yi (motorun önerdiği varyant) UCI yerine GERÇEK satranç
-        // notasyonuyla (SAN — ör. "Nf3", "O-O", "exd5") göstermek için
-        // ayrıca çeviriyoruz (kullanıcının isteği: "rok O-O olarak görünsün"
-        // ile aynı notasyon PV için de geçerli olsun).
-        let sanPv = [];
-        if (result && result.pv && result.pv.length) {
-          try { sanPv = await pvToSan(fen, result.pv); } catch { sanPv = []; }
-        }
-        if (result) result.sanPv = sanPv;
-        return sendJson(res, 200, { fen, whiteToMove, noLegalMoves: false, insufficientMaterial: false, result });
-      } catch (err) {
-        return sendJson(res, 500, { error: err.message });
-      }
+      return streamAnalysisEvaluate(req, res, info.startFen, moveList);
     }
   }
 
@@ -609,6 +686,10 @@ async function main() {
   await analysisEngine.start();
   console.log('Analiz motoru hazır.');
 
+  console.log('Notasyon (SAN çevirisi) motoru başlatılıyor...');
+  await notationEngine.start();
+  console.log('Notasyon motoru hazır.');
+
   gameManager = new GameManager(engine, store, hub);
 
   server.listen(PORT, () => {
@@ -621,5 +702,5 @@ main().catch(err => {
   process.exit(1);
 });
 
-process.on('SIGINT', () => { engine.quit(); analysisEngine.quit(); process.exit(0); });
-process.on('SIGTERM', () => { engine.quit(); analysisEngine.quit(); process.exit(0); });
+process.on('SIGINT', () => { engine.quit(); analysisEngine.quit(); notationEngine.quit(); process.exit(0); });
+process.on('SIGTERM', () => { engine.quit(); analysisEngine.quit(); notationEngine.quit(); process.exit(0); });
