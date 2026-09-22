@@ -13,6 +13,16 @@
   --dark-square: #779556;
   --highlight: rgba(255, 255, 0, 0.35);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Kare boyutu artık SABİT bir piksel değeri değil, bir DEĞİŞKEN (--sq).
+     Masaüstünde eskisiyle birebir aynı (70px) kalıyor -- clamp()'in ORTA
+     değeri (100vw'e bağlı hesap) sadece ekran genişliği yaklaşık 520px'in
+     ALTINA düşünce (telefon/küçültülmüş pencere) devreye giriyor ve kareyi
+     küçültüyor. Böylece tahta (ve yanındaki değerlendirme çubuğu) HER
+     EKRANDA yatay taşma/kırpılma OLMADAN sığıyor -- "a sütunu yarım
+     görünüyor, eval barı ancak yana kaydırınca görünüyor" hatasının kökü
+     buydu (kareler her zaman sabit 70px'ti). #board, .square ve
+     .eval-bar-container artık hep bu değişkeni kullanıyor (bkz. aşağısı). */
+  --sq: clamp(38px, (100vw - 100px) / 6, 70px);
 }
 
 * { box-sizing: border-box; }
@@ -22,6 +32,11 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  /* Küçük ekranlarda beklenmedik bir öğe yine de biraz taşarsa (ör. çok
+     uzun bir kullanıcı adı), sayfanın tamamının yana kayması yerine o
+     fazlalık kırpılsın -- "eval barını ancak yana kaydırarak görüyorum"
+     hatasının bir daha hiçbir şekilde geri gelmemesi için ek güvence. */
+  overflow-x: hidden;
 }
 
 a { color: var(--accent); }
@@ -312,6 +327,8 @@ input:focus { outline: 2px solid var(--accent); }
   border-radius: 8px;
   padding: 10px 16px;
   min-width: 420px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .player-strip .name { font-weight: 600; }
@@ -344,19 +361,19 @@ input:focus { outline: 2px solid var(--accent); }
 
 #board {
   display: grid;
-  grid-template-columns: repeat(6, 70px);
-  grid-template-rows: repeat(6, 70px);
+  grid-template-columns: repeat(6, var(--sq));
+  grid-template-rows: repeat(6, var(--sq));
   border: 3px solid var(--border);
   width: fit-content;
 }
 
 .square {
-  width: 70px;
-  height: 70px;
+  width: var(--sq);
+  height: var(--sq);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 46px;
+  font-size: calc(var(--sq) * 0.66);
   line-height: 1;
   user-select: none;
   cursor: pointer;
@@ -507,22 +524,25 @@ input:focus { outline: 2px solid var(--accent); }
 }
 
 .eval-bar-container {
-  /* ÖNEMLİ: yükseklik burada SABİT bir px değeri olarak (percentage değil)
+  /* ÖNEMLİ: yükseklik burada SABİT (percentage değil) bir uzunluk olarak
      belirtilmeli — aksi halde içindeki .eval-bar-white/.eval-bar-black
      öğelerinin yüzde (%) yükseklikleri geçersiz sayılır (CSS kuralı: bir
      öğenin yüzde yüksekliği, üst kapsayıcının yüksekliği "içerikten değil
      açıkça" belirtilmişse çalışır — flex "stretch" ile gelen yükseklik bu
-     sayılmıyor, 0 gibi davranıyordu). Tahtanın gerçek boyutuyla birebir
-     eşleşiyor: 6 kare * 70px + 2 * 3px kenarlık = 426px.
+     sayılmıyor, 0 gibi davranıyordu). calc() ile hesaplanan bir değer de
+     "açık/sabit" sayıldığı için bu hâlâ çalışıyor -- ve artık tahtanın
+     GERÇEK (küçük ekranlarda küçülebilen) boyutuyla birebir eşleşiyor:
+     6 kare * var(--sq) + 2 * 3px kenarlık.
   */
   width: 22px;
-  height: 426px;
+  height: calc(var(--sq) * 6 + 6px);
   border: 2px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #1a1a1a;
+  flex-shrink: 0;
 }
 
 /* Normal (çevrilmemiş) tahtada üstte siyah, altta beyaz oturuyor — tahtanın
@@ -673,3 +693,27 @@ input:focus { outline: 2px solid var(--accent); }
 
 .game-over-banner h3 { margin: 0 0 6px 0; }
 .game-over-banner .rating-change { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+
+/* ---- Küçük ekran / telefon düzeltmeleri (oyun ve analiz sayfaları) ----
+   Kare boyutu artık yukarıdaki --sq değişkeniyle otomatik küçülüyor, ama
+   bunun işe yaramasi için ETRAFINDAKİ sabit genişlikli öğelerin de (yan
+   panel, oyuncu şeridi, sayfa dolgusu) yol vermesi gerekiyor -- aksi
+   halde onlar taşarak yine yatay kaydırmaya (ve "a" sütununun kırpılmış
+   görünmesine) yol açardı. */
+@media (max-width: 720px) {
+  .game-layout {
+    padding: 10px;
+    gap: 14px;
+  }
+  .player-strip {
+    min-width: 0;
+    width: 100%;
+  }
+  .side-panel {
+    width: 100%;
+    max-width: 460px;
+  }
+  .analysis-board-row {
+    gap: 6px;
+  }
+}

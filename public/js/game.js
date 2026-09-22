@@ -314,6 +314,12 @@
   // ---------------- Sürükle-bırak (drag & drop) ----------------
 
   function onSquarePointerDown(e, r, c) {
+    // Sadece SOL tık/dokunuş bir taş sürüklemesi başlatabilir -- sağ tık artık
+    // ayrı bir amaç için kullanılıyor (ok/çember işaretlemesi, aşağıda). Bu
+    // kontrol olmadan, fare her zaman aynı "pointerId"yi paylaştığından, bir
+    // taşın üzerinde sağ tıklayıp sürüklemek yanlışlıkla bir hamle sürüklemesi
+    // gibi algılanabiliyordu.
+    if (e.button !== 0) return;
     if (!state || state.status !== 'active') return;
     if (!myTurn()) return;
     const grid = fenToGrid(state.currentFen);
@@ -454,6 +460,171 @@
       e.preventDefault();
     }
   }, true);
+
+  // ---------------- Sağ tık işaretlemeleri (ok / çember) ----------------
+  // Lichess'teki gibi: tahtada bir kareye SAĞ TIKLAYIP sürüklemek (o karede
+  // taş olsa bile) silik yeşil bir OK çizer; sürüklemeden düz bir sağ tık ise
+  // silik yeşil bir ÇEMBER çizer. Her ikisi de kalıcıdır -- oyuncu tahtada
+  // herhangi bir yere SOL tıklayana kadar ekranda kalır. Bu özellik sadece
+  // fare ile (masaüstünde) anlamlı olduğu için düz mouse olayları kullanılıyor
+  // (dokunmatik cihazlarda sağ tık zaten yok).
+  let boardAnnotations = []; // {type:'circle', r, c} | {type:'arrow', fromR, fromC, toR, toC}
+  let rightDragState = null; // {fromR, fromC, lastR, lastC, moved}
+  const annotationsSvg = $('userAnnotationsSvg');
+
+  function annotationsEqual(a, b) {
+    if (!a || !b || a.type !== b.type) return false;
+    if (a.type === 'circle') return a.r === b.r && a.c === b.c;
+    return a.fromR === b.fromR && a.fromC === b.fromC && a.toR === b.toR && a.toC === b.toC;
+  }
+
+  // Bir kareden diğerine giden hareketin, HERHANGİ BİR taşın (kale/fil/vezir
+  // gibi düz/çapraz herhangi bir mesafe, ya da at gibi L şeklinde) yapabileceği
+  // bir şekil olup olmadığını kontrol eder. Bu, sürükleme sırasında okun
+  // sadece "geçerli" karelere kadar uzamasını sağlamak için kullanılıyor.
+  function isValidPieceShape(fromR, fromC, toR, toC) {
+    const dr = toR - fromR, dc = toC - fromC;
+    if (dr === 0 && dc === 0) return false;
+    if (dr === 0 || dc === 0) return true; // düz (yatay/dikey), herhangi bir mesafe
+    if (Math.abs(dr) === Math.abs(dc)) return true; // çapraz, herhangi bir mesafe
+    if ((Math.abs(dr) === 2 && Math.abs(dc) === 1) || (Math.abs(dr) === 1 && Math.abs(dc) === 2)) return true; // at (L şekli)
+    return false;
+  }
+
+  function squareFromPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const sqEl = el && el.closest ? el.closest('.square') : null;
+    if (!sqEl || !boardEl.contains(sqEl)) return null;
+    return { r: parseInt(sqEl.dataset.r, 10), c: parseInt(sqEl.dataset.c, 10) };
+  }
+
+  function annotationCenter(boardRect, r, c) {
+    const el = squareEls[r] && squareEls[r][c];
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left - boardRect.left + rect.width / 2, y: rect.top - boardRect.top + rect.height / 2, sq: rect.width };
+  }
+
+  const ANNOTATION_COLOR = 'rgba(21, 145, 40, 0.6)';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  function drawOneAnnotation(boardRect, anno) {
+    if (anno.type === 'circle') {
+      const p = annotationCenter(boardRect, anno.r, anno.c);
+      if (!p) return;
+      const strokeW = Math.max(3, p.sq * 0.08);
+      const radius = Math.max(4, p.sq / 2 - strokeW / 2 - 2);
+      const circle = document.createElementNS(ns, 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', radius);
+      circle.setAttribute('fill', 'none');
+      circle.setAttribute('stroke', ANNOTATION_COLOR);
+      circle.setAttribute('stroke-width', strokeW);
+      annotationsSvg.appendChild(circle);
+      return;
+    }
+    const p1 = annotationCenter(boardRect, anno.fromR, anno.fromC);
+    const p2 = annotationCenter(boardRect, anno.toR, anno.toC);
+    if (!p1 || !p2) return;
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const sq = p1.sq;
+    const tipX = p2.x - ux * (sq * 0.12);
+    const tipY = p2.y - uy * (sq * 0.12);
+    const lineEndX = tipX - ux * (sq * 0.22);
+    const lineEndY = tipY - uy * (sq * 0.22);
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', p1.x);
+    line.setAttribute('y1', p1.y);
+    line.setAttribute('x2', lineEndX);
+    line.setAttribute('y2', lineEndY);
+    line.setAttribute('stroke', ANNOTATION_COLOR);
+    line.setAttribute('stroke-width', Math.max(6, sq * 0.14));
+    line.setAttribute('stroke-linecap', 'round');
+    annotationsSvg.appendChild(line);
+
+    const angle = Math.atan2(dy, dx);
+    const headLen = sq * 0.30;
+    const headWidth = sq * 0.26;
+    const baseX = tipX - Math.cos(angle) * headLen;
+    const baseY = tipY - Math.sin(angle) * headLen;
+    const leftX = baseX + Math.cos(angle + Math.PI / 2) * (headWidth / 2);
+    const leftY = baseY + Math.sin(angle + Math.PI / 2) * (headWidth / 2);
+    const rightX = baseX + Math.cos(angle - Math.PI / 2) * (headWidth / 2);
+    const rightY = baseY + Math.sin(angle - Math.PI / 2) * (headWidth / 2);
+    const head = document.createElementNS(ns, 'polygon');
+    head.setAttribute('points', `${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`);
+    head.setAttribute('fill', ANNOTATION_COLOR);
+    annotationsSvg.appendChild(head);
+  }
+
+  function renderAnnotations(livePreview) {
+    annotationsSvg.innerHTML = '';
+    const boardRect = boardEl.getBoundingClientRect();
+    if (!boardRect.width || !boardRect.height) return;
+    annotationsSvg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
+    for (const anno of boardAnnotations) drawOneAnnotation(boardRect, anno);
+    if (livePreview) drawOneAnnotation(boardRect, livePreview);
+  }
+
+  function clearAnnotations() {
+    if (!boardAnnotations.length) return;
+    boardAnnotations = [];
+    renderAnnotations();
+  }
+
+  // Tahtanın kendi sağ tık menüsünü (native context menu) hiç göstermiyoruz --
+  // aksi halde her sağ tıkta tarayıcının kendi menüsü açılırdı.
+  boardEl.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  boardEl.addEventListener('mousedown', (e) => {
+    if (e.button === 0) {
+      // Sol tık: tahtada HERHANGİ bir yere (taş olsun olmasın) sol tıklanınca
+      // tüm işaretlemeler temizlenir -- bu, gerçek bir hamle oynatmak için
+      // yapılan tıklama/sürüklemeyi de otomatik olarak kapsar.
+      clearAnnotations();
+      return;
+    }
+    if (e.button !== 2) return;
+    const start = squareFromPoint(e.clientX, e.clientY);
+    if (!start) return;
+    rightDragState = { fromR: start.r, fromC: start.c, lastR: start.r, lastC: start.c, moved: false };
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!rightDragState) return;
+    const cur = squareFromPoint(e.clientX, e.clientY);
+    if (cur && (cur.r !== rightDragState.fromR || cur.c !== rightDragState.fromC)) {
+      if (isValidPieceShape(rightDragState.fromR, rightDragState.fromC, cur.r, cur.c)) {
+        rightDragState.lastR = cur.r;
+        rightDragState.lastC = cur.c;
+        rightDragState.moved = true;
+      }
+      // Geçersiz bir şekle (ör. a1->d2) gelindiyse: en son GEÇERLİ karede
+      // kalmaya devam ediyoruz (lastR/lastC güncellenmiyor).
+    }
+    renderAnnotations(rightDragState.moved ? {
+      type: 'arrow', fromR: rightDragState.fromR, fromC: rightDragState.fromC,
+      toR: rightDragState.lastR, toC: rightDragState.lastC,
+    } : null);
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!rightDragState || e.button !== 2) return;
+    const st = rightDragState;
+    rightDragState = null;
+    const anno = st.moved
+      ? { type: 'arrow', fromR: st.fromR, fromC: st.fromC, toR: st.lastR, toC: st.lastC }
+      : { type: 'circle', r: st.fromR, c: st.fromC };
+    const idx = boardAnnotations.findIndex(a => annotationsEqual(a, anno));
+    if (idx >= 0) boardAnnotations.splice(idx, 1);
+    else boardAnnotations.push(anno);
+    renderAnnotations();
+  });
+
+  window.addEventListener('resize', () => renderAnnotations());
 
   // ---------------- Saatler ----------------
 
