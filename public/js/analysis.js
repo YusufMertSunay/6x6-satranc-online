@@ -78,7 +78,7 @@
   let currentInCheck = false; // görüntülenen pozisyonda sırası gelen tarafın şahı çekiliyor mu?
 
   let generation = 0; // her navigasyonda artar; eski (gecikmiş) motor cevapları bununla elenir
-  let bestMoveHighlight = null; // { from, to } ya da null
+  let bestMoveHighlight = null; // { from, to, promotion, whiteToMove } ya da null (promotion terfi hamlelerinde dolu)
 
   // Motor artık bir pozisyon için TOPLAM 9 saniye (kesintisiz) düşünüp bu
   // süre boyunca birkaç kez ARA GÜNCELLEME gönderiyor (bkz. server.js:
@@ -368,6 +368,28 @@
     head.setAttribute('points', `${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`);
     head.setAttribute('fill', color);
     svg.appendChild(head);
+
+    // Motorun önerdiği hamle bir TERFİ ise (bestMove 5. karakteri terfi
+    // taşını belirtir, ör. "b7a8q"): Lichess'teki gibi, önerilen terfi
+    // taşının SOLUK (yarı saydam) bir görselini hedef karenin üzerine
+    // bindiriyoruz -- kullanıcı notasyonu okumadan hangi taşa terfi
+    // önerildiğini hemen görebilsin.
+    if (bestMoveHighlight.promotion) {
+      const letter = bestMoveHighlight.whiteToMove
+        ? bestMoveHighlight.promotion.toUpperCase()
+        : bestMoveHighlight.promotion.toLowerCase();
+      const ghostSize = sq * 0.78; // .piece-img ile aynı oran (bkz. style.css)
+      const ghost = document.createElementNS(ns, 'image');
+      ghost.setAttributeNS('http://www.w3.org/1999/xlink', 'href', pieceImgSrc(letter));
+      ghost.setAttribute('href', pieceImgSrc(letter));
+      ghost.setAttribute('x', x2 - ghostSize / 2);
+      ghost.setAttribute('y', y2 - ghostSize / 2);
+      ghost.setAttribute('width', ghostSize);
+      ghost.setAttribute('height', ghostSize);
+      ghost.setAttribute('opacity', '0.55');
+      ghost.style.pointerEvents = 'none';
+      svg.appendChild(ghost);
+    }
   }
 
   // ---------------- Varyant ağacı yardımcıları ----------------
@@ -1023,7 +1045,17 @@
       $('pvBox').textContent = '-';
     }
 
-    bestMoveHighlight = result.bestMove ? { from: result.bestMove.slice(0, 2), to: result.bestMove.slice(2, 4) } : null;
+    // bestMove 5 karakterse (ör. "b7a8q") bu bir TERFİ hamlesidir -- 5.
+    // karakter (q/r/b/n) önerilen terfi taşını verir; drawBestMoveArrow bunu
+    // hedef karenin üzerine soluk bir görsel olarak çiziyor (bkz. yukarısı).
+    // whiteToMove'u da saklıyoruz ki terfi taşı DOĞRU RENKTE (terfi eden
+    // tarafın rengiyle) çizilsin.
+    bestMoveHighlight = result.bestMove ? {
+      from: result.bestMove.slice(0, 2),
+      to: result.bestMove.slice(2, 4),
+      promotion: result.bestMove.length > 4 ? result.bestMove.slice(4) : null,
+      whiteToMove,
+    } : null;
     renderBoard();
   }
 
