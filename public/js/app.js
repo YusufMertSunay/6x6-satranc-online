@@ -105,19 +105,50 @@
     timeControls = tcs;
     const list = $('tcList');
     list.innerHTML = '';
-    tcs.forEach((tc, i) => {
+    // Bu fonksiyon dil değişince (langchange) de tekrar çağrılıyor (etiketleri
+    // yeni dilde yeniden çizmek için) -- ESKİDEN her çağrıda seçimi körü
+    // körüne ilk seçeneğe sıfırlıyordu; bu da (örn.) kuyrukta beklerken dil
+    // değiştirilirse gerçek seçimin/kuyruk kaydının GÖRSEL olarak kaybolmasına
+    // yol açardı. Artık halihazırdaki seçim hâlâ listede varsa onu koruyoruz.
+    const activeKey = (selectedTc && tcs.some(tc => tc.key === selectedTc)) ? selectedTc : (tcs.length ? tcs[0].key : null);
+    tcs.forEach((tc) => {
       const div = document.createElement('div');
-      div.className = 'tc-option' + (i === 0 ? ' selected' : '');
+      div.className = 'tc-option' + (tc.key === activeKey ? ' selected' : '');
       div.dataset.key = tc.key;
       div.innerHTML = `<span class="label">${formatTimeControlLabel(tc)}</span><span class="tc-rating">${ratingFor(tc.category)}</span>`;
-      div.addEventListener('click', () => {
+      div.addEventListener('click', async () => {
+        // ÖNEMLİ (bir kullanıcı raporuyla bulunan hata): kuyrukta beklerken
+        // (inQueue) bu liste hâlâ tıklanabilir kalıyor -- ama "Oyun Bul"
+        // düğmesi gizli olduğu için, ESKİDEN sadece görsel seçim değişiyor,
+        // selectedTc güncelleniyor ama SUNUCUYA hiç haber verilmiyordu. Bu
+        // yüzden biri kuyrukta beklerken başka bir süre kontrolüne tıklayınca
+        // ekranda o seçiliymiş gibi görünse de GERÇEKTE hâlâ İLK seçtiği
+        // süre kontrolünün kuyruğunda bekliyordu. Artık kuyruktayken
+        // tıklanınca, iptal etmeye gerek kalmadan sunucudaki kuyruk kaydı da
+        // (server.js: gameManager.joinQueue zaten kullanıcıyı önce TÜM
+        // kuyruklardan siliyor) hemen yeni seçime göre güncelleniyor.
+        if (inQueue) {
+          if (tc.key === selectedTc) return; // zaten bu süre kontrolüyle aranıyor
+          const previousKey = selectedTc;
+          document.querySelectorAll('.tc-option').forEach(el => el.classList.toggle('selected', el.dataset.key === tc.key));
+          try {
+            await api('POST', '/api/queue/join', { timeControlKey: tc.key });
+            selectedTc = tc.key;
+          } catch (err) {
+            // Değişiklik başarısız oldu (ör. bu arada bir oyun başlamış
+            // olabilir) -- görünümü GERÇEK (eski) seçime geri al.
+            document.querySelectorAll('.tc-option').forEach(el => el.classList.toggle('selected', el.dataset.key === previousKey));
+            alert(I18N.tErr(err));
+          }
+          return;
+        }
         document.querySelectorAll('.tc-option').forEach(el => el.classList.remove('selected'));
         div.classList.add('selected');
         selectedTc = tc.key;
       });
       list.appendChild(div);
     });
-    if (tcs.length) selectedTc = tcs[0].key;
+    selectedTc = activeKey;
   }
 
   async function loadLeaderboard(category) {
