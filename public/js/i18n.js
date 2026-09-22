@@ -173,6 +173,13 @@
       'err.ENGINE_NOT_RUNNING': 'Motor çalışmıyor.',
       'err.NOT_FOUND': 'Bulunamadı.',
       'err.INVALID_LANGUAGE': 'Geçersiz dil.',
+      'err.BOOK_MOVE_UNDELETABLE': 'Kitap hamlesi silinemez.',
+      'err.NODE_NOT_FOUND': 'Düğüm bulunamadı.',
+
+      // ---- Varyant ağacı (lichess tarzı alt varyantlar) ----
+      'analysis.confirmDeleteVariation': 'Bu varyantı (ve varsa devamındaki hamleleri) silmek istediğine emin misin?',
+      'analysis.deleteVariationTitle': 'Bu varyantı sil',
+      'analysis.pvBoxTitle': 'Bu varyantı tahtaya uygula ve kaydet',
     },
     en: {
       'brand.titleHome': '6x6 <span class="accent">Chess</span> Online',
@@ -308,6 +315,13 @@
       'err.ENGINE_NOT_RUNNING': "The engine isn't running.",
       'err.NOT_FOUND': 'Not found.',
       'err.INVALID_LANGUAGE': 'Invalid language.',
+      'err.BOOK_MOVE_UNDELETABLE': "The game's real move can't be deleted.",
+      'err.NODE_NOT_FOUND': 'Move not found.',
+
+      // ---- Variation tree (lichess-style sub-variations) ----
+      'analysis.confirmDeleteVariation': 'Delete this variation (and any moves after it)?',
+      'analysis.deleteVariationTitle': 'Delete this variation',
+      'analysis.pvBoxTitle': 'Apply this line to the board and save it',
     },
   };
 

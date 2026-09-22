@@ -487,8 +487,12 @@ input:focus { outline: 2px solid var(--accent); }
   overflow-y: auto;
   font-size: 14px;
   font-family: 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.9;
+  /* Lichess tarzı iç içe varyantlar artık sabit bir grid/satır yapısı değil,
+     serbestçe akan (wrap eden) satır içi (inline) öğelerden oluşuyor —
+     bkz. public/js/analysis.js: buildLineFragment/renderMoveTree. */
+  word-wrap: break-word;
 }
-
 .moves-box .move-pair { display: flex; gap: 8px; padding: 2px 0; }
 .moves-box .move-num { color: var(--text-dim); width: 26px; }
 
@@ -555,6 +559,50 @@ input:focus { outline: 2px solid var(--accent); }
 .moves-box span[data-idx] { cursor: pointer; border-radius: 3px; padding: 1px 4px; }
 .moves-box span[data-idx]:hover { background: var(--bg-panel-light); }
 .moves-box span.current-move { background: var(--accent); color: #fff; }
+
+/* ---- Varyant ağacı (lichess tarzı) ---- */
+.moves-box .san-move {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 4px;
+  display: inline-block;
+}
+.moves-box .san-move:hover { background: var(--bg-panel-light); }
+.moves-box .san-move.current-move { background: var(--accent); color: #fff; }
+
+/* Bir alt varyant (kitaptan/ana hattan sapılan denemeler) — girintili ve
+   hafifçe soluk renkte, parantez içinde gösterilir (lichess'teki gibi). Bu
+   sınıf iç içe de kullanılabildiği için (varyantın içindeki bir varyant)
+   her seviye biraz daha soluklaşır. */
+.moves-box .variation-block {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.95em;
+}
+.moves-box .variation-block .san-move.current-move {
+  background: var(--accent);
+  color: #fff;
+  font-style: normal;
+}
+
+/* Kullanıcının kendi eklediği (kitabın/ gerçek oyunun parçası OLMAYAN)
+   hamlelerin yanında beliren küçük "sil" düğmesi — gerçek oyunun hamleleri
+   hiçbir zaman bu düğmeye sahip olmuyor (bkz. analysis.js: makeMoveSpan,
+   sunucu tarafında da isBook kontrolü var). */
+.moves-box .variation-delete-btn {
+  display: inline-block;
+  margin-left: 3px;
+  color: var(--danger);
+  font-weight: 700;
+  font-style: normal;
+  cursor: pointer;
+  opacity: 0.55;
+  padding: 0 2px;
+}
+.moves-box .variation-delete-btn:hover { opacity: 1; }
+
+.pv-box { cursor: pointer; }
+.pv-box:hover { background: var(--bg-panel-light); }
 
 /* Motorun önerdiği en iyi hamle — Lichess'teki gibi, tahtanın üzerine
    yarı saydam mavi bir OK çizerek gösteriliyor (kare çerçevesi yerine). */

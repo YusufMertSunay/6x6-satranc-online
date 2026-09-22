@@ -21,6 +21,7 @@ const { EventHub } = require('./lib/events');
 const { GameManager, START_FEN } = require('./lib/gameManager');
 const { isInsufficientMaterial } = require('./lib/rules');
 const { moveToSan } = require('./lib/notation');
+const { createEmptyTree, addNode, childIdsOf, findChildByUci, uciPathTo, deleteSubtree } = require('./lib/analysisTree');
 
 const PORT = process.env.PORT || 3000;
 const ENGINE_PATH = path.join(__dirname, 'engine', 'fairy-stockfish');
@@ -105,6 +106,8 @@ const ERROR_CODES = {
   'Motor çalışmıyor.': 'ENGINE_NOT_RUNNING',
   'Bulunamadı.': 'NOT_FOUND',
   'Geçersiz dil.': 'INVALID_LANGUAGE',
+  'Kitap hamlesi silinemez.': 'BOOK_MOVE_UNDELETABLE',
+  'Düğüm bulunamadı.': 'NODE_NOT_FOUND',
 };
 
 function errJson(res, status, message, extra) {
@@ -293,6 +296,102 @@ async function freeMovesToSan(uciMoves) {
     legalAtCurrent = legalAtNext;
   }
   return sanList;
+}
+
+// ---- Analiz tahtası VARYANT AĞACI (lichess tarzı) yardımcıları ----
+// Ağacın kendisi (düğüm ekleme/silme/yol bulma) lib/analysisTree.js'de saf
+// veri yapısı olarak yaşıyor; burada sadece motora (FEN/SAN/yasallık) ihtiyaç
+// duyan kısımları -- yeni bir hamle eklerken doğrulama ve notasyon üretimi --
+// ve store.js kalıcılığını (yükle/kaydet) bir araya getiriyoruz.
+
+function analysisScopeKey(userId, gameId) {
+  return gameId ? `game:${gameId}:${userId}` : `free:${userId}`;
+}
+
+// scopeKey'e ait ağacı diskten yükler; hiç yoksa YENİ bir ağaç oluşturur.
+// gameId'li (oyun-bazlı) analizde, ağaç İLK KEZ oluşturulurken gerçek oyunun
+// hamleleri "isBook:true" olarak zincire tohumlanır (bookMovesUci/bookSanMoves)
+// -- böylece oyuncu daha sonra geri dönüp ağacı açtığında gerçek oyunun
+// hamleleri hep orada olur ve SİLİNEMEZ (bkz. deleteNodeFromTree). Ağaç zaten
+// varsa (daha önce en az bir kez kaydedilmişse) bookMovesUci'ye BAKILMAZ --
+// zaten oradaki isBook zinciri korunuyor.
+function getOrCreateAnalysisTree(scopeKey, startFen, bookMovesUci, bookSanMoves) {
+  let tree = store.getAnalysisTree(scopeKey);
+  if (tree) return tree;
+  tree = createEmptyTree(startFen);
+  if (bookMovesUci && bookMovesUci.length) {
+    let parentId = null;
+    for (let i = 0; i < bookMovesUci.length; i++) {
+      const node = addNode(tree, { parentId, uci: bookMovesUci[i], san: (bookSanMoves && bookSanMoves[i]) || bookMovesUci[i], isBook: true });
+      parentId = node.id;
+    }
+  }
+  store.saveAnalysisTree(scopeKey, tree);
+  return tree;
+}
+
+// parentId düğümünün altına (kökse null) yeni bir hamle (uci) ekler. Aynı
+// ebeveynin altında aynı uci zaten varsa (istemci aynı hamleyi iki kez
+// gönderirse -- ör. sayfa yeniden yüklendi) MEVCUT düğüm döndürülür, çift
+// varyant OLUŞTURULMAZ (idempotent). Yasallık + SAN üretimi pvToSan/
+// freeMovesToSan ile BİREBİR AYNI mantıkla, tek seferde bir hamle için yapılır.
+// ÖNEMLİ: burada analysisEngine YERİNE notationEngine kullanıyoruz.
+// analysisEngine, bir pozisyon için TOPLAM 9 SANİYE (kesintisiz)
+// meşgul olabiliyor (bkz. ANALYSIS_TOTAL_MS) -- kullanıcı bu 9 saniye
+// SÜRERKEN tahtaya tıklayıp yeni bir hamle denerse (çok normal bir
+// senaryo), bu hamlenin ağaca eklenmesi analysisEngine'in kuyruğunun
+// EN SONUNA düşerdi ve neredeyse 9 saniyeye kadar "asılı" kalırdı --
+// arayüz donmuş gibi görünürdü. notationEngine HER ZAMAN BOŞTA
+// tutulduğu için (bkz. pvToSan/sendChunk'taki aynı mantık) bu doğrulama
+// hep ANINDA sonuçlanıyor.
+async function addMoveToTree(scopeKey, tree, parentId, uci) {
+  const existing = findChildByUci(tree, parentId || null, uci);
+  if (existing) return existing;
+  const priorMoves = uciPathTo(tree, parentId || null);
+  const fenBefore = await notationEngine.getFenAfterMoves(tree.startFen, priorMoves);
+  if (!fenBefore) throw new Error('Motor pozisyonu hesaplayamadı.');
+  const legalMoves = await notationEngine.getLegalMoves(fenBefore);
+  if (!legalMoves.includes(uci)) throw new Error('Bu hamle yasal değil.');
+  const sanBody = moveToSan(fenBefore, uci, legalMoves);
+  let suffix = '';
+  const fenAfter = await notationEngine.getFenAfterMoves(fenBefore, [uci]);
+  if (fenAfter) {
+    try {
+      const legalAfter = await notationEngine.getLegalMoves(fenAfter);
+      const inCheck = await notationEngine.isInCheck(fenAfter);
+      suffix = inCheck ? (legalAfter.length === 0 ? '#' : '+') : '';
+    } catch { /* şah/mat işaretini atlayıp devam edelim */ }
+  }
+  const node = addNode(tree, { parentId: parentId || null, uci, san: sanBody + suffix, isBook: false });
+  store.saveAnalysisTree(scopeKey, tree);
+  return node;
+}
+
+// parentId'den başlayıp uciList'teki hamleleri SIRAYLA ağaca ekler (motorun
+// önerdiği bir varyantın TAMAMINI tek seferde uygulamak için) -- her adımda
+// addMoveToTree'nin aynı dedupe/doğrulama mantığını kullanır, oluşan/bulunan
+// düğümlerin id DİZİSİNİ (yeni "yol" -- currentPath'e eklenecek kısım) döndürür.
+async function addLineToTree(scopeKey, tree, parentId, uciList) {
+  const newPath = [];
+  let cur = parentId || null;
+  for (const uci of uciList) {
+    const node = await addMoveToTree(scopeKey, tree, cur, uci);
+    newPath.push(node.id);
+    cur = node.id;
+  }
+  return newPath;
+}
+
+// Bir düğümü (ve tüm alt ağacını) siler -- ama önce (VE alt ağacındaki HİÇBİR
+// düğüm) isBook değilse. Kullanıcı gerçek oyunun hamlelerini SİLEMEZ; kendi
+// eklediği bir varyantı (o varyantın altında oynadığı devam hamleleriyle
+// birlikte) istediği zaman silebilir.
+function deleteNodeFromTree(scopeKey, tree, nodeId) {
+  const node = tree.nodes[nodeId];
+  if (!node) throw new Error('Düğüm bulunamadı.');
+  if (node.isBook) throw new Error('Kitap hamlesi silinemez.');
+  deleteSubtree(tree, nodeId);
+  store.saveAnalysisTree(scopeKey, tree);
 }
 
 // Bir pozisyonu MOTORUN KESİNTİSİZ 9 SANİYE DÜŞÜNMESİYLE değerlendirir ve
@@ -538,6 +637,44 @@ async function handleApi(req, res, pathname, url) {
     return streamAnalysisEvaluate(req, res, START_FEN, moveList);
   }
 
+  // ---- Serbest analiz VARYANT AĞACI (kalıcı -- kullanıcı başına tek taslak) ----
+  if (pathname === '/api/free-analysis-tree' && req.method === 'GET') {
+    const scopeKey = analysisScopeKey(user.id, null);
+    const tree = getOrCreateAnalysisTree(scopeKey, START_FEN, null, null);
+    return sendJson(res, 200, { tree });
+  }
+
+  if (pathname === '/api/free-analysis-tree/add-move' && req.method === 'POST') {
+    const scopeKey = analysisScopeKey(user.id, null);
+    const tree = getOrCreateAnalysisTree(scopeKey, START_FEN, null, null);
+    const { parentId, uci } = await readBody(req);
+    try {
+      const node = await addMoveToTree(scopeKey, tree, parentId || null, uci);
+      return sendJson(res, 200, { tree, nodeId: node.id });
+    } catch (err) { return errJson(res, 400, err.message); }
+  }
+
+  if (pathname === '/api/free-analysis-tree/add-line' && req.method === 'POST') {
+    const scopeKey = analysisScopeKey(user.id, null);
+    const tree = getOrCreateAnalysisTree(scopeKey, START_FEN, null, null);
+    const { parentId, uciList } = await readBody(req);
+    const list = Array.isArray(uciList) ? uciList : [];
+    try {
+      const path = await addLineToTree(scopeKey, tree, parentId || null, list);
+      return sendJson(res, 200, { tree, path });
+    } catch (err) { return errJson(res, 400, err.message); }
+  }
+
+  if (pathname === '/api/free-analysis-tree/delete-node' && req.method === 'POST') {
+    const scopeKey = analysisScopeKey(user.id, null);
+    const tree = getOrCreateAnalysisTree(scopeKey, START_FEN, null, null);
+    const { nodeId } = await readBody(req);
+    try {
+      deleteNodeFromTree(scopeKey, tree, nodeId);
+      return sendJson(res, 200, { tree });
+    } catch (err) { return errJson(res, 400, err.message); }
+  }
+
   if (pathname === '/events' && req.method === 'GET') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -711,6 +848,54 @@ async function handleApi(req, res, pathname, url) {
       const { moves } = await readBody(req);
       const moveList = Array.isArray(moves) ? moves : [];
       return streamAnalysisEvaluate(req, res, info.startFen, moveList);
+    }
+
+    // ---- Oyun-bazlı analiz VARYANT AĞACI (kalıcı -- bu oyunu analiz eden bu
+    // kullanıcıya özel) -- ağaç ilk açıldığında gerçek oyunun hamleleri
+    // isBook:true olarak tohumlanır (bkz. getOrCreateAnalysisTree).
+    if (sub === '/analysis-tree' && req.method === 'GET') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
+      const scopeKey = analysisScopeKey(user.id, gameId);
+      const tree = getOrCreateAnalysisTree(scopeKey, info.startFen, info.movesUci, info.sanMoves);
+      return sendJson(res, 200, { tree });
+    }
+
+    if (sub === '/analysis-tree/add-move' && req.method === 'POST') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
+      const scopeKey = analysisScopeKey(user.id, gameId);
+      const tree = getOrCreateAnalysisTree(scopeKey, info.startFen, info.movesUci, info.sanMoves);
+      const { parentId, uci } = await readBody(req);
+      try {
+        const node = await addMoveToTree(scopeKey, tree, parentId || null, uci);
+        return sendJson(res, 200, { tree, nodeId: node.id });
+      } catch (err) { return errJson(res, 400, err.message); }
+    }
+
+    if (sub === '/analysis-tree/add-line' && req.method === 'POST') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
+      const scopeKey = analysisScopeKey(user.id, gameId);
+      const tree = getOrCreateAnalysisTree(scopeKey, info.startFen, info.movesUci, info.sanMoves);
+      const { parentId, uciList } = await readBody(req);
+      const list = Array.isArray(uciList) ? uciList : [];
+      try {
+        const path = await addLineToTree(scopeKey, tree, parentId || null, list);
+        return sendJson(res, 200, { tree, path });
+      } catch (err) { return errJson(res, 400, err.message); }
+    }
+
+    if (sub === '/analysis-tree/delete-node' && req.method === 'POST') {
+      const info = getFinishedGameForUser(gameId, user.id);
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
+      const scopeKey = analysisScopeKey(user.id, gameId);
+      const tree = getOrCreateAnalysisTree(scopeKey, info.startFen, info.movesUci, info.sanMoves);
+      const { nodeId } = await readBody(req);
+      try {
+        deleteNodeFromTree(scopeKey, tree, nodeId);
+        return sendJson(res, 200, { tree });
+      } catch (err) { return errJson(res, 400, err.message); }
     }
   }
 

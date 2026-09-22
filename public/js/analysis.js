@@ -59,10 +59,18 @@
   // — oyun ekranındaki (game.js) eşiklerle BİREBİR AYNI.
   const LOW_TIME_MS = { bullet: 10000, blitz: 30000, rapid: 60000, classical: 60000 };
 
-  let bookMoves = [];   // oyunun GERÇEKTE oynanmış hamleleri (UCI) — SABİT
-  let bookSan = [];     // aynı hamlelerin SAN gösterimi — SABİT
-
-  let appliedMoves = []; // şu anda tahtada uygulanmış hamleler (DEĞİŞEBİLİR — sapma burada olur)
+  // ---- Varyant AĞACI (lichess tarzı) ----
+  // tree: sunucudan gelen (ve sunucuda kalıcı olarak saklanan) tüm hamle
+  // ağacı -- bkz. lib/analysisTree.js. { startFen, nodes:{id:{id,parentId,
+  // uci,san,isBook,children:[]}}, rootChildren:[id,...], nextId }.
+  // currentPath: KÖKTEN şu anki pozisyona kadar olan düğüm id'leri dizisi
+  // (boşsa başlangıç pozisyonundayız). redoStack: Geri (Back) ile terk
+  // edilen düğümler -- tarayıcının ileri/geri geçmişi gibi, İleri (Forward)
+  // ile yeniden aynı yola dönülebilsin diye (yeni bir dal denenmediği
+  // sürece hiçbir varyant KAYBOLMAZ, sadece "geçmişte" kalır).
+  let tree = null;
+  let currentPath = [];
+  let redoStack = [];
   let selected = null;
   let currentFen = null;
   let currentLegalMoves = [];
@@ -250,7 +258,8 @@
   function renderBoard() {
     if (!currentFen) return;
     const grid = fenToGrid(currentFen);
-    const lastMove = appliedMoves.length ? appliedMoves[appliedMoves.length - 1] : null;
+    const lastMoveNodeId = currentNodeId();
+    const lastMove = lastMoveNodeId ? tree.nodes[lastMoveNodeId].uci : null;
     let lastFrom = null, lastTo = null;
     if (lastMove) {
       lastFrom = lastMove.slice(0, 2);
@@ -361,17 +370,81 @@
     svg.appendChild(head);
   }
 
-  // ---------------- Kitap (gerçek oyun) takibi ----------------
+  // ---------------- Varyant ağacı yardımcıları ----------------
+  // (lib/analysisTree.js'deki server-side yardımcıların İSTEMCİ TARAFI
+  // eşdeğerleri -- burada motor/FEN gerekmiyor, sadece ağaç üzerinde
+  // gezinme/okuma yapılıyor.)
 
-  function isOnBook() {
-    if (appliedMoves.length > bookMoves.length) return false;
-    for (let i = 0; i < appliedMoves.length; i++) {
-      if (appliedMoves[i] !== bookMoves[i]) return false;
+  function childrenOf(parentId) {
+    if (!tree) return [];
+    if (!parentId) return tree.rootChildren || [];
+    const node = tree.nodes[parentId];
+    return node ? node.children : [];
+  }
+
+  // Kökten nodeId'ye kadar olan düğüm id'leri dizisini verir (nodeId dahil).
+  function nodeIdPathTo(nodeId) {
+    const path = [];
+    let cur = nodeId;
+    while (cur) {
+      path.unshift(cur);
+      const node = tree.nodes[cur];
+      cur = node ? node.parentId : null;
     }
-    return true;
+    return path;
+  }
+
+  // Bir düğüm id dizisini (currentPath gibi) motora gönderilecek UCI hamle
+  // dizisine çevirir (analysis-position/analysis-evaluate uçları hâlâ düz
+  // bir { moves: [...] } gövdesi bekliyor -- ağacın kendisi hakkında hiçbir
+  // şey bilmelerine gerek yok).
+  function movesForPath(path) {
+    return path.map(id => tree.nodes[id].uci);
+  }
+
+  function currentNodeId() {
+    return currentPath.length ? currentPath[currentPath.length - 1] : null;
+  }
+
+  // Şu anki pozisyona giden yoldaki HER düğüm gerçek oyunun ana hattının
+  // (isBook) bir parçaysa hâlâ "kitaptayız" demektir (kök -- yani hiç hamle
+  // oynanmamış hâl -- her zaman kitapta sayılır, boş dizinin every() değeri
+  // true döner). Serbest analizde (freeMode) hiçbir düğüm isBook olmadığı
+  // için en az bir hamle oynanır oynanmaz bu hep false döner -- bu yüzden
+  // "kitaptan sapıldı" notu renderStatus'ta zaten freeMode'da gösterilmiyor.
+  function isOnBook() {
+    return currentPath.every(id => tree.nodes[id] && tree.nodes[id].isBook);
   }
 
   // ---------------- Etkileşim (tahtaya tıklayarak hamle deneme) ----------------
+
+  // Tahtaya tıklayarak/sürükleyerek ya da terfi seçerek oynanan HER hamle
+  // buradan geçer -- hamleyi sunucudaki (kalıcı) varyant ağacına ekletir
+  // (aynı ebeveynin altında aynı hamle zaten varsa sunucu MEVCUT düğümü
+  // döndürür, çift varyant oluşmaz -- bkz. server.js: addMoveToTree), yeni
+  // düğümü currentPath'e ekler ve pozisyonu tazeler. Kullanıcı YENİ bir dal
+  // denediği için (redoStack'teki "ileri" geçmişiyle birebir aynı hamle
+  // DEĞİLSE) redoStack temizlenir -- tarayıcı geçmişinde yeni bir sayfaya
+  // gitmenin "ileri" geçmişini silmesi gibi.
+  async function playMove(uci) {
+    const parentId = currentNodeId();
+    let resp;
+    try {
+      resp = await api('POST', analysisPath('analysis-tree/add-move'), { parentId, uci });
+    } catch (err) {
+      alert(I18N.tErr(err));
+      return;
+    }
+    tree = resp.tree;
+    currentPath = [...currentPath, resp.nodeId];
+    if (redoStack.length && redoStack[redoStack.length - 1] === resp.nodeId) {
+      redoStack.pop();
+    } else {
+      redoStack = [];
+    }
+    selected = null;
+    refreshPosition();
+  }
 
   function pieceBelongsToSideToMove(piece) {
     if (!piece) return false;
@@ -416,15 +489,13 @@
     selected = null;
 
     if (matches.length === 1) {
-      appliedMoves.push(matches[0]);
-      refreshPosition();
+      playMove(matches[0]);
     } else {
       // Terfi — birden fazla eşleşme (farklı terfi taşları).
       const options = matches.map(m => m.slice(4));
       const sideIsWhite = currentWhiteToMove;
       showPromotionModal(options, sideIsWhite, (choice) => {
-        appliedMoves.push(from + sq + choice);
-        refreshPosition();
+        playMove(from + sq + choice);
       });
     }
   }
@@ -551,14 +622,12 @@
     }
 
     if (matches.length === 1) {
-      appliedMoves.push(matches[0]);
-      refreshPosition();
+      playMove(matches[0]);
     } else {
       const options = matches.map(m => m.slice(4));
       const sideIsWhite = currentWhiteToMove;
       showPromotionModal(options, sideIsWhite, (choice) => {
-        appliedMoves.push(fromSq + dropSq + choice);
-        refreshPosition();
+        playMove(fromSq + dropSq + choice);
       });
     }
   }
@@ -579,65 +648,178 @@
     }
   }, true);
 
-  // ---------------- Hamle listesi ----------------
+  // ---------------- Hamle listesi (varyant ağacı) ----------------
+  // Lichess tarzı: ana hat (her düğümün İLK çocuğu) düz akışta yazılıyor;
+  // aynı ebeveynin altındaki DİĞER çocuklar (kullanıcının aynı hamlede
+  // denediği farklı alternatifler) parantez içinde, ayrı bir "alt varyant"
+  // olarak hemen ardından ekleniyor -- bu mantık RECURSIVE olduğu için bir
+  // varyantın içinde başka bir varyant (2., 3., 4. ... denemeler) da aynı
+  // şekilde iç içe gösterilebiliyor.
 
-  function renderMoveList() {
-    const box = $('movesBox');
-    const onBook = isOnBook();
-    const currentBookIndex = onBook ? appliedMoves.length : -1; // 1 => ilk hamle oynanmış demek
-    let html = '';
-    for (let i = 0; i < bookSan.length; i += 2) {
-      const num = i / 2 + 1;
-      const whiteIdx = i + 1;
-      const blackIdx = i + 2;
-      const whiteCls = whiteIdx === currentBookIndex ? ' class="current-move"' : '';
-      const blackCls = blackIdx === currentBookIndex ? ' class="current-move"' : '';
-      const whiteSpan = `<span data-idx="${i}"${whiteCls}>${bookSan[i]}</span>`;
-      const blackSpan = bookSan[i + 1] !== undefined
-        ? `<span data-idx="${i + 1}"${blackCls}>${bookSan[i + 1]}</span>`
-        : '<span></span>';
-      html += `<div class="move-pair"><span class="move-num">${num}.</span>${whiteSpan}${blackSpan}</div>`;
+  function navigateToNode(nodeId) {
+    currentPath = nodeId ? nodeIdPathTo(nodeId) : [];
+    redoStack = [];
+    selected = null;
+    refreshPosition();
+  }
+
+  async function deleteNode(nodeId) {
+    if (!confirm(I18N.t('analysis.confirmDeleteVariation'))) return;
+    let resp;
+    try {
+      resp = await api('POST', analysisPath('analysis-tree/delete-node'), { nodeId });
+    } catch (err) {
+      alert(I18N.tErr(err));
+      return;
     }
-    box.innerHTML = html;
-    box.querySelectorAll('span[data-idx]').forEach(span => {
-      span.addEventListener('click', () => {
-        const idx = parseInt(span.dataset.idx, 10);
-        appliedMoves = bookMoves.slice(0, idx + 1);
-        selected = null;
-        refreshPosition();
+    tree = resp.tree;
+    // Şu an gösterilen pozisyon, silinen alt ağacın İÇİNDEYSE (silinen
+    // düğümün kendisi ya da bir devamıysa), en yakın hâlâ var olan atalara
+    // (silinen düğümün ebeveynine) geri dönüyoruz.
+    const idx = currentPath.indexOf(nodeId);
+    if (idx !== -1) currentPath = currentPath.slice(0, idx);
+    redoStack = [];
+    selected = null;
+    refreshPosition();
+  }
+
+  function makeMoveSpan(node, numberPrefix) {
+    const wrap = document.createElement('span');
+    wrap.className = 'san-move' + (node.id === currentNodeId() ? ' current-move' : '');
+    wrap.textContent = (numberPrefix || '') + node.san;
+    wrap.addEventListener('click', () => navigateToNode(node.id));
+    // Gerçek oyunun hamleleri (isBook) SİLİNEMEZ -- sadece kullanıcının
+    // kendi eklediği (kitaptan sapan) hamlelerin yanında "sil" düğmesi var.
+    if (!node.isBook) {
+      const delBtn = document.createElement('span');
+      delBtn.className = 'variation-delete-btn';
+      delBtn.textContent = '✕';
+      delBtn.title = I18N.t('analysis.deleteVariationTitle');
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteNode(node.id);
       });
-    });
+      wrap.appendChild(delBtn);
+    }
+    return wrap;
+  }
+
+  // parentId'nin İLK çocuğundan başlayarak ana hattı (depth arttıkça) çizer;
+  // yol üzerindeki her ebeveynin FAZLADAN çocukları varsa (ikinci, üçüncü...
+  // denemeler) her biri için parantez içinde, kendi devamıyla birlikte
+  // (yine bu fonksiyonu recursive çağırarak) ayrı bir varyant bloğu ekler.
+  function buildLineFragment(startParentId, startDepth) {
+    const frag = document.createDocumentFragment();
+    let parentId = startParentId;
+    let depth = startDepth;
+    let first = true;
+    while (true) {
+      const kids = childrenOf(parentId);
+      if (!kids.length) break;
+      const isWhite = depth % 2 === 1;
+      const moveNum = Math.ceil(depth / 2);
+
+      const mainNode = tree.nodes[kids[0]];
+      const mainPrefix = isWhite ? (moveNum + '. ') : (first ? (moveNum + '… ') : '');
+      frag.appendChild(makeMoveSpan(mainNode, mainPrefix));
+      frag.appendChild(document.createTextNode(' '));
+
+      for (let i = 1; i < kids.length; i++) {
+        const varNode = tree.nodes[kids[i]];
+        const varPrefix = isWhite ? (moveNum + '. ') : (moveNum + '… ');
+        const block = document.createElement('span');
+        block.className = 'variation-block';
+        block.appendChild(document.createTextNode('('));
+        block.appendChild(makeMoveSpan(varNode, varPrefix));
+        block.appendChild(document.createTextNode(' '));
+        block.appendChild(buildLineFragment(varNode.id, depth + 1));
+        block.appendChild(document.createTextNode(') '));
+        frag.appendChild(block);
+      }
+
+      parentId = kids[0];
+      depth += 1;
+      first = false;
+    }
+    return frag;
+  }
+
+  function renderMoveTree() {
+    const box = $('movesBox');
+    box.innerHTML = '';
+    box.appendChild(buildLineFragment(null, 1));
+    // Notasyon kutucuğu sığmaz hale gelince (uzun bir oyun/varyant), şu anki
+    // hamleyi (varsa) her zaman görünür alanda tutarak OTOMATİK OLARAK
+    // aşağı (ya da yukarı) kaydırıyoruz -- kullanıcı manuel kaydırmak
+    // zorunda kalmıyor.
+    const curEl = box.querySelector('.current-move');
+    if (curEl && typeof curEl.scrollIntoView === 'function') {
+      curEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    } else {
+      box.scrollTop = box.scrollHeight;
+    }
   }
 
   // ---------------- Navigasyon düğmeleri ----------------
 
-  function renderNavButtons() {
-    const onBook = isOnBook();
-    $('navStartBtn').disabled = appliedMoves.length === 0;
-    $('navBackBtn').disabled = appliedMoves.length === 0;
-    $('navForwardBtn').disabled = !(onBook && appliedMoves.length < bookMoves.length);
-    $('navEndBtn').disabled = onBook && appliedMoves.length === bookMoves.length;
+  // İleri (Forward) gidilecek bir şey var mı? -- ya redoStack'te (Geri ile
+  // terk edilmiş ama hâlâ hatırlanan) bir düğüm var, ya da şu anki
+  // pozisyonun en az bir çocuğu (devamı) var demektir.
+  function canGoForward() {
+    if (redoStack.length) return true;
+    return childrenOf(currentNodeId()).length > 0;
   }
 
+  function renderNavButtons() {
+    $('navStartBtn').disabled = currentPath.length === 0;
+    $('navBackBtn').disabled = currentPath.length === 0;
+    const fwd = canGoForward();
+    $('navForwardBtn').disabled = !fwd;
+    $('navEndBtn').disabled = !fwd;
+  }
+
+  // Başa (Start): şu ana kadar gezinilen tüm yolu redoStack'e (tarayıcının
+  // "ileri" geçmişi gibi) taşır -- böylece İleri'ye basılınca aynı yoldan
+  // adım adım (ya da doğrudan Sona ile tek seferde) geri dönülebilir; hiçbir
+  // varyant KAYBOLMAZ.
   $('navStartBtn').addEventListener('click', () => {
-    appliedMoves = [];
+    while (currentPath.length) redoStack.push(currentPath.pop());
     selected = null;
     refreshPosition();
   });
   $('navBackBtn').addEventListener('click', () => {
-    if (appliedMoves.length === 0) return;
-    appliedMoves = appliedMoves.slice(0, -1);
+    if (currentPath.length === 0) return;
+    redoStack.push(currentPath.pop());
     selected = null;
     refreshPosition();
   });
   $('navForwardBtn').addEventListener('click', () => {
-    if (!isOnBook() || appliedMoves.length >= bookMoves.length) return;
-    appliedMoves.push(bookMoves[appliedMoves.length]);
+    if (redoStack.length) {
+      currentPath.push(redoStack.pop());
+    } else {
+      const kids = childrenOf(currentNodeId());
+      if (!kids.length) return;
+      currentPath.push(kids[0]); // ana hat -- ilk (en önce eklenen) çocuk
+    }
     selected = null;
     refreshPosition();
   });
+  // Sona (End): redoStack'te bir "ileri" geçmişi varsa TAMAMINI geri
+  // uygulayarak oradan devam eder; yoksa (taze bir dal ya da hiç geri
+  // gidilmemiş) şu anki pozisyondan itibaren ana hattı (her düğümün ilk
+  // çocuğu) sonuna kadar takip eder.
   $('navEndBtn').addEventListener('click', () => {
-    appliedMoves = bookMoves.slice();
+    if (redoStack.length) {
+      while (redoStack.length) currentPath.push(redoStack.pop());
+    } else {
+      let parentId = currentNodeId();
+      while (true) {
+        const kids = childrenOf(parentId);
+        if (!kids.length) break;
+        currentPath.push(kids[0]);
+        parentId = kids[0];
+      }
+    }
     selected = null;
     refreshPosition();
   });
@@ -700,12 +882,12 @@
       $('topClock').classList.remove('low');
       return;
     }
-    // appliedMoves.length, o anki pozisyonda kaç GERÇEK/varsayılan hamle
-    // uygulandığını verir; kitaptan sapıldıysa (appliedMoves.length gerçek
-    // oyundakinden uzun olabilir) elimizdeki SON bilinen (gerçek) saat
-    // durumunu göstermeye devam ediyoruz — sapılan hamleler için saat
-    // bilgisi zaten hiç var olmadı.
-    const idx = Math.min(appliedMoves.length, clockHistory.length - 1);
+    // currentPath.length, o anki pozisyonda kaç hamle uygulandığını verir;
+    // kitaptan sapıldıysa (currentPath.length gerçek oyundakinden uzun
+    // olabilir) elimizdeki SON bilinen (gerçek) saat durumunu göstermeye
+    // devam ediyoruz — sapılan hamleler için saat bilgisi zaten hiç var
+    // olmadı.
+    const idx = Math.min(currentPath.length, clockHistory.length - 1);
     const snap = clockHistory[idx];
     const bottomColor = flipped ? 'black' : 'white';
     const topColor = flipped ? 'white' : 'black';
@@ -727,8 +909,8 @@
     const onBook = isOnBook();
     const turnText = currentWhiteToMove ? I18N.t('analysis.turnWhite') : I18N.t('analysis.turnBlack');
     // "Kitaptan sapıldı" uyarısı SADECE gerçek bir oyunun analizinde anlamlı
-    // (freeMode'da zaten sabit bir "kitap" yok, bookMoves her zaman
-    // appliedMoves'a eşitleniyor — bkz. refreshPosition).
+    // (freeMode'da zaten sabit bir "kitap" yok -- ağaçta hiçbir düğüm
+    // isBook değil, bkz. isOnBook).
     const noteText = (!freeMode && !onBook) ? I18N.t('analysis.deviatedNote') : '';
     box.textContent = turnText + noteText;
   }
@@ -845,13 +1027,36 @@
     renderBoard();
   }
 
+  // Motorun önerdiği varyantın (PV kutucuğu) üzerine tıklanınca: o varyantın
+  // TAMAMI (motorun UCI cinsinden önerdiği hamle dizisi -- result.pv) tek
+  // seferde ağaca (yeni bir varyant/devam olarak) eklenir VE tahta,
+  // varyantın SONUNDA oluşan pozisyona otomatik olarak atlar. Kullanıcı bu
+  // hamle dizisinin bir kısmını ya da tamamını istediği zaman (her zamanki
+  // "sil" düğmesiyle) silebilir -- book olmadıkları için hepsi silinebilir.
+  $('pvBox').addEventListener('click', async () => {
+    if (!lastEvalData || !lastEvalData.result || !lastEvalData.result.pv || !lastEvalData.result.pv.length) return;
+    const parentId = currentNodeId();
+    let resp;
+    try {
+      resp = await api('POST', analysisPath('analysis-tree/add-line'), { parentId, uciList: lastEvalData.result.pv });
+    } catch (err) {
+      alert(I18N.tErr(err));
+      return;
+    }
+    tree = resp.tree;
+    currentPath = [...currentPath, ...resp.path];
+    redoStack = [];
+    selected = null;
+    refreshPosition();
+  });
+
   // ---------------- Pozisyon tazeleme (navigasyon sonrası) ----------------
 
   async function refreshPosition() {
     const myGen = ++generation;
     selected = null;
     renderNavButtons();
-    renderMoveList();
+    renderMoveTree();
 
     // ÖNEMLİ: önceki (hâlâ sürüyor olabilecek, motoru 9 saniyeye kadar
     // meşgul edebilecek) bir değerlendirme isteği varsa BURADA, pozisyon
@@ -866,9 +1071,10 @@
       currentEvalAbort = null;
     }
 
+    const movesSoFar = movesForPath(currentPath);
     let posData;
     try {
-      posData = await api('POST', analysisPath('analysis-position'), { moves: appliedMoves });
+      posData = await api('POST', analysisPath('analysis-position'), { moves: movesSoFar });
     } catch (err) {
       if (myGen !== generation) return;
       $('statusBox').textContent = I18N.t('err.positionCalcFailedPrefix') + I18N.tErr(err);
@@ -882,17 +1088,6 @@
     currentInCheck = !!posData.inCheck;
     bestMoveHighlight = null;
 
-    if (freeMode) {
-      // Serbest analizde sabit bir "kitap" (gerçek oyun) yok -- o ana kadar
-      // OYNANAN hamlelerin kendisi kitap sayılır (sunucu her pozisyon
-      // isteğinde güncel SAN listesini de gönderiyor, bkz. server.js
-      // /api/free-analysis-position). Bu sayede "kitaptan sapıldı" uyarısı
-      // hiç görünmez ve hamle listesi oynadıkça doğru şekilde güncellenir.
-      bookMoves = appliedMoves.slice();
-      bookSan = posData.sanMoves || [];
-      renderMoveList();
-    }
-
     renderBoard();
     renderStatus();
     renderNavButtons();
@@ -902,7 +1097,7 @@
     $('pvBox').textContent = '...';
 
     try {
-      await streamEval(analysisPath('analysis-evaluate'), { moves: appliedMoves }, (chunk) => {
+      await streamEval(analysisPath('analysis-evaluate'), { moves: movesSoFar }, (chunk) => {
         // Motor hâlâ 9 saniyelik düşünmesini sürdürürken bu callback 1/3/5/7/9.
         // saniyelerde birkaç kez çağrılıyor -- her çağrıda ekranı (en iyi
         // hamle oku + PV kutucuğu) GÜNCELLİYORUZ, en son (final:true) çağrı
@@ -983,8 +1178,6 @@
     }
 
     startFen = info.startFen;
-    bookMoves = info.movesUci || [];
-    bookSan = info.sanMoves || [];
     whiteId = info.whiteId;
     blackId = info.blackId;
     whiteUsername = info.whiteUsername;
@@ -1017,9 +1210,33 @@
     renderPlayerNames();
     syncEvalBarOrientation();
 
-    // C# masaüstü uygulamasındaki gibi analiz varsayılan olarak oyunun
-    // SONUNDA açılıyor (bitmiş oyunun son pozisyonu).
-    appliedMoves = bookMoves.slice();
+    // Kalıcı varyant ağacını yükle (yoksa sunucu, oyun-bazlı analizde
+    // gerçek oyunun hamlelerini "isBook" olarak baştan oluşturur; serbest
+    // analizde boş bir ağaçla başlar -- bkz. server.js: getOrCreateAnalysisTree).
+    let treeResp;
+    try {
+      treeResp = await api('GET', analysisPath('analysis-tree'));
+    } catch (err) {
+      $('statusBox').textContent = I18N.t('err.analysisOpenFailedPrefix') + I18N.tErr(err);
+      return;
+    }
+    tree = treeResp.tree;
+
+    // Analiz varsayılan olarak, ağaçtaki ANA HATTIN (her düğümün ilk/en
+    // önce eklenen çocuğu) SONUNDA açılıyor -- oyun-bazlı analizde bu,
+    // C# masaüstü uygulamasındaki gibi bitmiş oyunun son pozisyonu demek;
+    // serbest analizde ise kullanıcının EN SON kaldığı yer demek (moves
+    // kalıcı olduğu için "hiç oynanmamış gibi" sıfırlanmıyor).
+    currentPath = [];
+    redoStack = [];
+    let parentId = null;
+    while (true) {
+      const kids = childrenOf(parentId);
+      if (!kids.length) break;
+      currentPath.push(kids[0]);
+      parentId = kids[0];
+    }
+
     await refreshPosition();
   }
 
