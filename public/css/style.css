@@ -43,11 +43,51 @@ header.topbar h1 {
 
 header.topbar h1 .accent { color: var(--accent); }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .user-badge {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 14px;
+}
+
+/* TR/EN dil geçiş düğmesi — bkz. public/js/i18n.js */
+.lang-switch {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lang-switch button {
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-radius: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.lang-switch button + button {
+  border-left: 1px solid var(--border);
+}
+
+.lang-switch button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.lang-switch button:not(.active):hover {
+  background: var(--bg-panel-light);
+  color: var(--text);
 }
 
 .user-badge .rating {

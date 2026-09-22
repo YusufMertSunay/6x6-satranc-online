@@ -98,7 +98,7 @@
     let json = null;
     try { json = await res.json(); } catch { }
     if (!res.ok) {
-      const err = new Error((json && json.error) || 'Bilinmeyen hata');
+      const err = new Error((json && json.error) || I18N.t('err.unknown'));
       err.payload = json;
       err.status = res.status;
       throw err;
@@ -135,7 +135,7 @@
     });
     if (!res.ok) {
       let json = null; try { json = await res.json(); } catch { }
-      const err = new Error((json && json.error) || 'Bilinmeyen hata');
+      const err = new Error((json && json.error) || I18N.t('err.unknown'));
       err.payload = json;
       err.status = res.status;
       throw err;
@@ -662,9 +662,13 @@
   function renderPlayerNames() {
     const bottomColor = flipped ? 'black' : 'white';
     const topColor = flipped ? 'white' : 'black';
-    const nameFor = (color) => color === 'white' ? whiteUsername : blackUsername;
+    // whiteUsername/blackUsername gerçek bir oyunda her zaman dolu geliyor;
+    // serbest analizde (freeMode) sunucu bilerek null gönderiyor (bkz.
+    // server.js: /api/free-analysis-start) -- bu durumda "Beyaz"/"Siyah"
+    // yazısını arayüz diline göre BİZ üretiyoruz.
+    const nameFor = (color) => (color === 'white' ? whiteUsername : blackUsername) || I18N.t('common.' + color);
     const ratingFor = (color) => color === 'white' ? whiteRating : blackRating;
-    const suffix = (color) => (color === myColor ? ' (Sen)' : '');
+    const suffix = (color) => (color === myColor ? I18N.t('common.youSuffix') : '');
     $('bottomName').textContent = nameFor(bottomColor) + suffix(bottomColor);
     $('topName').textContent = nameFor(topColor) + suffix(topColor);
     // İsimlerin yanında, bu oyunun süre kontrolü kategorisine ait Elo puanı
@@ -721,11 +725,11 @@
   function renderStatus() {
     const box = $('statusBox');
     const onBook = isOnBook();
-    const turnText = currentWhiteToMove ? 'Sırada: Beyaz' : 'Sırada: Siyah';
+    const turnText = currentWhiteToMove ? I18N.t('analysis.turnWhite') : I18N.t('analysis.turnBlack');
     // "Kitaptan sapıldı" uyarısı SADECE gerçek bir oyunun analizinde anlamlı
     // (freeMode'da zaten sabit bir "kitap" yok, bookMoves her zaman
     // appliedMoves'a eşitleniyor — bkz. refreshPosition).
-    const noteText = (!freeMode && !onBook) ? ' — kitaptan sapıldı (bu hamleler gerçek oyunda oynanmadı)' : '';
+    const noteText = (!freeMode && !onBook) ? I18N.t('analysis.deviatedNote') : '';
     box.textContent = turnText + noteText;
   }
 
@@ -770,26 +774,32 @@
   }
 
   function renderEvalNeutral(text) {
-    $('evalLabel').textContent = 'Değerlendirme: ' + text;
+    $('evalLabel').textContent = I18N.t('analysis.evalPrefix') + text;
     $('pvBox').textContent = '-';
     setEvalBarPercent(50);
     bestMoveHighlight = null;
   }
 
+  // Dil değişince az önce gösterilen değerlendirmeyi (motoru YENİDEN
+  // ÇALIŞTIRMADAN) doğru dilde yeniden çizebilmek için son gelen veriyi
+  // saklıyoruz — bkz. dosya sonundaki 'langchange' dinleyicisi.
+  let lastEvalData = null;
+
   function renderEval(data) {
+    lastEvalData = data;
     if (data.noLegalMoves) {
-      renderEvalNeutral('oyun bu pozisyonda bitiyor (hamle yok)');
+      renderEvalNeutral(I18N.t('analysis.evalGameOverNoMoves'));
       renderBoard();
       return;
     }
     if (data.insufficientMaterial) {
-      renderEvalNeutral('berabere (yetersiz taş)');
+      renderEvalNeutral(I18N.t('analysis.evalDrawInsufficientMaterial'));
       renderBoard();
       return;
     }
     const result = data.result;
     if (!result) {
-      renderEvalNeutral('-');
+      renderEvalNeutral(I18N.t('common.dash'));
       renderBoard();
       return;
     }
@@ -801,21 +811,22 @@
     if (result.scoreMate !== null && result.scoreMate !== undefined) {
       const whiteMate = whiteToMove ? result.scoreMate : -result.scoreMate;
       if (whiteMate > 0) {
-        labelText = `Beyaz mat ediyor (#${Math.abs(whiteMate)})`;
+        labelText = I18N.t('analysis.whiteMatesIn', { n: Math.abs(whiteMate) });
         whitePercent = 99;
       } else {
-        labelText = `Siyah mat ediyor (#${Math.abs(whiteMate)})`;
+        labelText = I18N.t('analysis.blackMatesIn', { n: Math.abs(whiteMate) });
         whitePercent = 1;
       }
     } else {
       const whiteCp = whiteToMove ? result.scoreCp : -result.scoreCp;
       const pawns = (whiteCp / 100).toFixed(2);
       const sign = whiteCp > 0 ? '+' : '';
-      labelText = `${sign}${pawns} (${whiteCp >= 0 ? 'Beyaz avantajlı' : 'Siyah avantajlı'})`;
+      const advantageText = whiteCp >= 0 ? I18N.t('analysis.whiteAdvantage') : I18N.t('analysis.blackAdvantage');
+      labelText = `${sign}${pawns} (${advantageText})`;
       whitePercent = cpToWhitePercent(whiteCp);
     }
 
-    $('evalLabel').textContent = 'Değerlendirme: ' + labelText;
+    $('evalLabel').textContent = I18N.t('analysis.evalPrefix') + labelText;
     setEvalBarPercent(whitePercent);
 
     if (result.sanPv && result.sanPv.length) {
@@ -860,7 +871,7 @@
       posData = await api('POST', analysisPath('analysis-position'), { moves: appliedMoves });
     } catch (err) {
       if (myGen !== generation) return;
-      $('statusBox').textContent = 'Pozisyon hesaplanamadı: ' + err.message;
+      $('statusBox').textContent = I18N.t('err.positionCalcFailedPrefix') + I18N.tErr(err);
       return;
     }
     if (myGen !== generation) return;
@@ -887,7 +898,7 @@
     renderNavButtons();
     renderClocks();
 
-    $('evalLabel').textContent = 'Değerlendirme: hesaplanıyor...';
+    $('evalLabel').textContent = I18N.t('analysis.evalCalculating');
     $('pvBox').textContent = '...';
 
     try {
@@ -906,7 +917,7 @@
       // -- bu gerçek bir hata değil, sessizce yoksayıyoruz (yeni
       // refreshPosition çağrısı zaten kendi güncellemesini gönderecek).
       if (err.name === 'AbortError') return;
-      $('evalLabel').textContent = 'Değerlendirme alınamadı: ' + err.message;
+      $('evalLabel').textContent = I18N.t('err.evalFailedPrefix') + I18N.tErr(err);
     }
   }
 
@@ -960,13 +971,14 @@
       window.location.href = '/';
       return;
     }
+    I18N.syncFromAccount(me.language);
     $('userName').textContent = me.username;
 
     let info;
     try {
       info = await api('GET', analysisPath('analysis-start'));
     } catch (err) {
-      $('statusBox').textContent = 'Analiz açılamadı: ' + err.message;
+      $('statusBox').textContent = I18N.t('err.analysisOpenFailedPrefix') + I18N.tErr(err);
       return;
     }
 
@@ -1010,6 +1022,17 @@
     appliedMoves = bookMoves.slice();
     await refreshPosition();
   }
+
+  // ---------------- Dil değişince görünen ekranı yeniden çiz ----------------
+  document.title = I18N.t('title.analysis');
+  window.addEventListener('langchange', () => {
+    document.title = I18N.t('title.analysis');
+    if (currentFen) {
+      renderPlayerNames();
+      renderStatus();
+      if (lastEvalData) renderEval(lastEvalData);
+    }
+  });
 
   initBoardColorSettings();
   init();

@@ -71,6 +71,47 @@ function sendJson(res, status, obj) {
   res.end(body);
 }
 
+// Sunucu hata mesajları hâlâ Türkçe metin olarak üretiliyor (aşağıdaki
+// gameManager.js/store.js/engine.js'de fırlatılan Error nesneleri VE bu
+// dosyadaki doğrulama mesajları) — bunları değiştirmek yerine, istemcinin
+// (public/js/i18n.js) o mesajı İNGİLİZCEYE çevirebilmesi için sabit bir
+// "errorCode" eşliyoruz. Böylece dil tamamen İSTEMCİ tarafında çözülüyor,
+// sunucunun her isteğin dilini bilmesine gerek kalmıyor — `error` alanı
+// (Türkçe metin) geriye dönük uyumluluk/loglama için AYNEN kalıyor.
+const ERROR_CODES = {
+  'Oyun bulunamadı.': 'GAME_NOT_FOUND',
+  'Bu oyunun oyuncusu değilsin.': 'NOT_A_PLAYER',
+  'Oyun zaten bitmiş.': 'GAME_ALREADY_FINISHED',
+  'Sıra sende değil.': 'NOT_YOUR_TURN',
+  'Bu hamle yasal değil.': 'ILLEGAL_MOVE',
+  'Geçersiz terfi seçimi.': 'INVALID_PROMOTION',
+  'Oyun bulunamadı ya da zaten bitmiş.': 'GAME_NOT_FOUND_OR_FINISHED',
+  'Yanıtlanacak bir beraberlik teklifi yok.': 'NO_DRAW_OFFER',
+  'Bu oyun için yeni oyun teklif edilemez.': 'REMATCH_NOT_AVAILABLE',
+  'Zaten devam eden bir oyunun var.': 'ALREADY_IN_GAME',
+  'Rakip şu anda başka bir oyunda.': 'OPPONENT_IN_GAME',
+  'Yanıtlanacak bir yeni oyun teklifi yok.': 'NO_REMATCH_OFFER',
+  'Taraflardan biri zaten başka bir oyunda.': 'PLAYER_IN_ANOTHER_GAME',
+  'Geçersiz süre kontrolü.': 'INVALID_TIME_CONTROL',
+  'Bu kullanıcı adı zaten alınmış.': 'USERNAME_TAKEN',
+  'Kullanıcı adı 3-24 karakter olmalı.': 'USERNAME_LENGTH',
+  'Kullanıcı adı geçersiz karakterler içeriyor.': 'USERNAME_INVALID_CHARS',
+  'Parola en az 6 karakter olmalı.': 'PASSWORD_TOO_SHORT',
+  'Kullanıcı adı ya da parola hatalı.': 'LOGIN_FAILED',
+  'Giriş yapmalısın.': 'LOGIN_REQUIRED',
+  'Bu oyun için analiz yapılamaz (oyun bitmemiş olabilir ya da bu oyunun oyuncusu değilsin).': 'ANALYSIS_NOT_AVAILABLE_DETAILED',
+  'Bu oyun için analiz yapılamaz.': 'ANALYSIS_NOT_AVAILABLE',
+  'Motor pozisyonu hesaplayamadı.': 'ENGINE_POSITION_FAILED',
+  'Motor çalışmıyor.': 'ENGINE_NOT_RUNNING',
+  'Bulunamadı.': 'NOT_FOUND',
+  'Geçersiz dil.': 'INVALID_LANGUAGE',
+};
+
+function errJson(res, status, message, extra) {
+  const obj = Object.assign({ error: message, errorCode: ERROR_CODES[message] || null }, extra || {});
+  return sendJson(res, status, obj);
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -275,16 +316,16 @@ async function streamAnalysisEvaluate(req, res, startFen, moveList) {
   try {
     fen = await analysisEngine.getFenAfterMoves(startFen, moveList);
   } catch (err) {
-    return sendJson(res, 500, { error: err.message });
+    return errJson(res, 500, err.message);
   }
-  if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+  if (!fen) return errJson(res, 500, 'Motor pozisyonu hesaplayamadı.');
   const whiteToMove = fen.includes(' w ');
 
   let legalMoves;
   try {
     legalMoves = await analysisEngine.getLegalMoves(fen);
   } catch (err) {
-    return sendJson(res, 500, { error: err.message });
+    return errJson(res, 500, err.message);
   }
 
   if (legalMoves.length === 0) {
@@ -363,22 +404,22 @@ async function handleApi(req, res, pathname, url) {
   if (pathname === '/api/register' && req.method === 'POST') {
     const { username, password } = await readBody(req);
     if (!username || typeof username !== 'string' || username.length < 3 || username.length > 24) {
-      return sendJson(res, 400, { error: 'Kullanıcı adı 3-24 karakter olmalı.' });
+      return errJson(res, 400, 'Kullanıcı adı 3-24 karakter olmalı.');
     }
     if (!/^[a-zA-Z0-9_şŞıİöÖüÜçÇğĞ]+$/.test(username)) {
-      return sendJson(res, 400, { error: 'Kullanıcı adı geçersiz karakterler içeriyor.' });
+      return errJson(res, 400, 'Kullanıcı adı geçersiz karakterler içeriyor.');
     }
     if (!password || password.length < 6) {
-      return sendJson(res, 400, { error: 'Parola en az 6 karakter olmalı.' });
+      return errJson(res, 400, 'Parola en az 6 karakter olmalı.');
     }
     try {
       const { salt, passwordHash } = hashPassword(password);
       const user = store.createUser({ username, passwordHash, salt });
       const token = sessions.createSession(user.id);
       res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-      return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings });
+      return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, language: user.language || 'tr' });
     } catch (err) {
-      return sendJson(res, 400, { error: err.message });
+      return errJson(res, 400, err.message);
     }
   }
 
@@ -386,11 +427,11 @@ async function handleApi(req, res, pathname, url) {
     const { username, password } = await readBody(req);
     const user = store.getUserByUsername(username || '');
     if (!user || !verifyPassword(password || '', user.salt, user.passwordHash)) {
-      return sendJson(res, 401, { error: 'Kullanıcı adı ya da parola hatalı.' });
+      return errJson(res, 401, 'Kullanıcı adı ya da parola hatalı.');
     }
     const token = sessions.createSession(user.id);
     res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-    return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings });
+    return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, language: user.language || 'tr' });
   }
 
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
@@ -407,7 +448,7 @@ async function handleApi(req, res, pathname, url) {
 
   // ---- Aşağıdakiler için giriş yapılmış olmak gerekiyor ----
   const user = getUserFromRequest(req);
-  if (!user) return sendJson(res, 401, { error: 'Giriş yapmalısın.' });
+  if (!user) return errJson(res, 401, 'Giriş yapmalısın.');
 
   if (pathname === '/api/logout' && req.method === 'POST') {
     const cookies = parseCookies(req);
@@ -420,7 +461,21 @@ async function handleApi(req, res, pathname, url) {
     return sendJson(res, 200, {
       id: user.id, username: user.username, ratings: user.ratings,
       wins: user.wins, losses: user.losses, draws: user.draws,
+      language: user.language || 'tr',
     });
+  }
+
+  // Arayüz dili tercihini ('tr' | 'en') HESABA kaydeder — böylece kullanıcı
+  // başka bir cihaz/tarayıcıdan giriş yaptığında da (o cihazın çerezinden
+  // bağımsız olarak) aynı dil otomatik uygulanır (bkz. public/js/i18n.js:
+  // setLang → persist, ve login/register/me cevaplarındaki "language" alanı).
+  if (pathname === '/api/set-language' && req.method === 'POST') {
+    const { language } = await readBody(req);
+    if (language !== 'tr' && language !== 'en') {
+      return errJson(res, 400, 'Geçersiz dil.');
+    }
+    store.setUserLanguage(user.id, language);
+    return sendJson(res, 200, { ok: true, language });
   }
 
   if (pathname === '/api/my-games' && req.method === 'GET') {
@@ -444,8 +499,12 @@ async function handleApi(req, res, pathname, url) {
       sanMoves: [],
       whiteId: null,
       blackId: null,
-      whiteUsername: 'Beyaz',
-      blackUsername: 'Siyah',
+      // Sabit "Beyaz"/"Siyah" METNİ göndermek yerine null bırakıyoruz --
+      // istemci (analysis.js) bir oyuncunun gerçek kullanıcı adı olmadığını
+      // gördüğünde, o anki arayüz diline göre "Beyaz"/"White" veya
+      // "Siyah"/"Black" yazısını KENDİSİ üretiyor (bkz. public/js/i18n.js).
+      whiteUsername: null,
+      blackUsername: null,
       whiteRating: null,
       blackRating: null,
       timeControlCategory: null,
@@ -458,7 +517,7 @@ async function handleApi(req, res, pathname, url) {
     const moveList = Array.isArray(moves) ? moves : [];
     try {
       const fen = await analysisEngine.getFenAfterMoves(START_FEN, moveList);
-      if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+      if (!fen) return errJson(res, 500, 'Motor pozisyonu hesaplayamadı.');
       const legalMoves = await analysisEngine.getLegalMoves(fen);
       const inCheck = await analysisEngine.isInCheck(fen);
       // Serbest analizde sabit bir "kitap" (gerçek oyun) olmadığı için,
@@ -469,7 +528,7 @@ async function handleApi(req, res, pathname, url) {
       const sanMoves = await freeMovesToSan(moveList);
       return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w '), inCheck, sanMoves });
     } catch (err) {
-      return sendJson(res, 500, { error: err.message });
+      return errJson(res, 500, err.message);
     }
   }
 
@@ -501,7 +560,7 @@ async function handleApi(req, res, pathname, url) {
       gameManager.joinQueue(user.id, timeControlKey);
       return sendJson(res, 200, { ok: true });
     } catch (err) {
-      return sendJson(res, 400, { error: err.message });
+      return errJson(res, 400, err.message);
     }
   }
 
@@ -546,7 +605,7 @@ async function handleApi(req, res, pathname, url) {
         });
         return sendJson(res, 200, { live: false, state });
       }
-      return sendJson(res, 404, { error: 'Oyun bulunamadı.' });
+      return errJson(res, 404, 'Oyun bulunamadı.');
     }
 
     if (sub === '/legal-moves' && req.method === 'GET') {
@@ -554,7 +613,7 @@ async function handleApi(req, res, pathname, url) {
         const moves = await gameManager.legalMoves(gameId, user.id);
         return sendJson(res, 200, { moves });
       } catch (err) {
-        return sendJson(res, 400, { error: err.message });
+        return errJson(res, 400, err.message);
       }
     }
 
@@ -565,37 +624,37 @@ async function handleApi(req, res, pathname, url) {
         return sendJson(res, 200, { state });
       } catch (err) {
         if (err.code === 'PROMOTION_REQUIRED') {
-          return sendJson(res, 409, { error: 'PROMOTION_REQUIRED', options: err.options });
+          return errJson(res, 409, 'PROMOTION_REQUIRED', { options: err.options });
         }
-        return sendJson(res, 400, { error: err.message });
+        return errJson(res, 400, err.message);
       }
     }
 
     if (sub === '/resign' && req.method === 'POST') {
       try { return sendJson(res, 200, { state: gameManager.resign(gameId, user.id) }); }
-      catch (err) { return sendJson(res, 400, { error: err.message }); }
+      catch (err) { return errJson(res, 400, err.message); }
     }
 
     if (sub === '/offer-draw' && req.method === 'POST') {
       try { return sendJson(res, 200, { state: gameManager.offerDraw(gameId, user.id) }); }
-      catch (err) { return sendJson(res, 400, { error: err.message }); }
+      catch (err) { return errJson(res, 400, err.message); }
     }
 
     if (sub === '/respond-draw' && req.method === 'POST') {
       const { accept } = await readBody(req);
       try { return sendJson(res, 200, { state: gameManager.respondDraw(gameId, user.id, !!accept) }); }
-      catch (err) { return sendJson(res, 400, { error: err.message }); }
+      catch (err) { return errJson(res, 400, err.message); }
     }
 
     if (sub === '/offer-rematch' && req.method === 'POST') {
       try { return sendJson(res, 200, { state: gameManager.offerRematch(gameId, user.id) }); }
-      catch (err) { return sendJson(res, 400, { error: err.message }); }
+      catch (err) { return errJson(res, 400, err.message); }
     }
 
     if (sub === '/respond-rematch' && req.method === 'POST') {
       const { accept } = await readBody(req);
       try { return sendJson(res, 200, { state: gameManager.respondRematch(gameId, user.id, !!accept) }); }
-      catch (err) { return sendJson(res, 400, { error: err.message }); }
+      catch (err) { return errJson(res, 400, err.message); }
     }
 
     // ---- Oyun sonrası analiz tahtası ----
@@ -605,7 +664,7 @@ async function handleApi(req, res, pathname, url) {
 
     if (sub === '/analysis-start' && req.method === 'GET') {
       const info = getFinishedGameForUser(gameId, user.id);
-      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz (oyun bitmemiş olabilir ya da bu oyunun oyuncusu değilsin).' });
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz (oyun bitmemiş olabilir ya da bu oyunun oyuncusu değilsin).');
       const whiteUser = store.getUserById(info.whiteId);
       const blackUser = store.getUserById(info.blackId);
       // Elo puanı kategoriye göre ayrı tutuluyor (bkz. store.js) — isimlerin
@@ -630,32 +689,32 @@ async function handleApi(req, res, pathname, url) {
 
     if (sub === '/analysis-position' && req.method === 'POST') {
       const info = getFinishedGameForUser(gameId, user.id);
-      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz.' });
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
       const { moves } = await readBody(req);
       const moveList = Array.isArray(moves) ? moves : [];
       try {
         const fen = await analysisEngine.getFenAfterMoves(info.startFen, moveList);
-        if (!fen) return sendJson(res, 500, { error: 'Motor pozisyonu hesaplayamadı.' });
+        if (!fen) return errJson(res, 500, 'Motor pozisyonu hesaplayamadı.');
         const legalMoves = await analysisEngine.getLegalMoves(fen);
         // İstemcinin, tehdit altındaki şahın karesini kırmızı gösterebilmesi
         // için bu pozisyonda şah çekiliyor mu bilgisi de dönüyor.
         const inCheck = await analysisEngine.isInCheck(fen);
         return sendJson(res, 200, { fen, legalMoves, whiteToMove: fen.includes(' w '), inCheck });
       } catch (err) {
-        return sendJson(res, 500, { error: err.message });
+        return errJson(res, 500, err.message);
       }
     }
 
     if (sub === '/analysis-evaluate' && req.method === 'POST') {
       const info = getFinishedGameForUser(gameId, user.id);
-      if (!info) return sendJson(res, 403, { error: 'Bu oyun için analiz yapılamaz.' });
+      if (!info) return errJson(res, 403, 'Bu oyun için analiz yapılamaz.');
       const { moves } = await readBody(req);
       const moveList = Array.isArray(moves) ? moves : [];
       return streamAnalysisEvaluate(req, res, info.startFen, moveList);
     }
   }
 
-  return sendJson(res, 404, { error: 'Bulunamadı.' });
+  return errJson(res, 404, 'Bulunamadı.');
 }
 
 const server = http.createServer(async (req, res) => {

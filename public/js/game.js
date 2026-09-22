@@ -24,7 +24,11 @@
 
   // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — bkz. lib/store.js.
-  const CATEGORY_LABELS = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classical: 'Klasik' };
+  // Kategori adı arayüz diline göre değişebildiği için (Klasik/Classical)
+  // sabit bir tabloya değil, i18n sözlüğüne bakıyoruz (bkz. categoryLabel).
+  function categoryLabel(category) {
+    return I18N.t('cat.' + category);
+  }
 
   // Süre kutucuğunun "az kaldı" (kırmızı) uyarısına geçeceği eşik, kategoriye
   // göre değişiyor: Bullet'te 10 sn, Blitz'te 30 sn, Rapid ve Klasik'te 1 dk.
@@ -68,7 +72,7 @@
     let json = null;
     try { json = await res.json(); } catch { }
     if (!res.ok) {
-      const err = new Error((json && json.error) || 'Bilinmeyen hata');
+      const err = new Error((json && json.error) || I18N.t('err.unknown'));
       err.payload = json;
       err.status = res.status;
       throw err;
@@ -285,7 +289,7 @@
           await submitMove(from, to, choice);
         });
       } else {
-        setStatusMessage(err.message, true);
+        setStatusMessage(I18N.tErr(err), true);
       }
     }
   }
@@ -519,17 +523,17 @@
 
   function resultReasonText(reason) {
     const map = {
-      checkmate: 'Şah mat',
-      stalemate: 'Pat (berabere)',
-      insufficient_material: 'Yetersiz taş (berabere)',
-      resign: 'Teslim oldu',
-      timeout: 'Süre doldu',
-      timeout_insufficient_material: 'Süre doldu, ancak yetersiz taş (berabere)',
-      draw_agreed: 'Anlaşmalı beraberlik',
-      threefold_repetition: 'Üç kez tekrar (berabere)',
-      fifty_move_rule: '50 hamle kuralı (berabere)',
+      checkmate: 'result.checkmate',
+      stalemate: 'result.stalemate',
+      insufficient_material: 'result.insufficientMaterial',
+      resign: 'result.resigned',
+      timeout: 'result.timeout',
+      timeout_insufficient_material: 'result.timeoutInsufficientMaterial',
+      draw_agreed: 'result.drawAgreed',
+      threefold_repetition: 'result.threefold',
+      fifty_move_rule: 'result.fiftyMove',
     };
-    return map[reason] || reason;
+    return map[reason] ? I18N.t(map[reason]) : reason;
   }
 
   function setStatusMessage(text, isError) {
@@ -540,7 +544,7 @@
 
   function renderStatus() {
     if (state.status === 'active') {
-      setStatusMessage(myTurn() ? 'Sıra sende' : 'Rakip düşünüyor...', false);
+      setStatusMessage(myTurn() ? I18N.t('game.yourTurn') : I18N.t('game.opponentThinking'), false);
     } else {
       setStatusMessage(resultReasonText(state.resultReason), false);
     }
@@ -554,21 +558,21 @@
     }
     let outcomeText, cls;
     if (state.winnerColor === null) {
-      outcomeText = 'Berabere';
+      outcomeText = I18N.t('result.draw');
       cls = '';
     } else if (state.winnerColor === myColor) {
-      outcomeText = 'Kazandın!';
+      outcomeText = I18N.t('result.wonBanner');
       cls = '';
     } else {
-      outcomeText = 'Kaybettin';
+      outcomeText = I18N.t('result.lost');
       cls = 'loss';
     }
     banner.className = 'game-over-banner' + (cls ? ' ' + cls : '');
     let ratingLine = '';
     if (typeof state.whiteRatingAfter === 'number') {
       const myRatingAfter = myColor === 'white' ? state.whiteRatingAfter : state.blackRatingAfter;
-      const categoryLabel = CATEGORY_LABELS[state.timeControlCategory] || '';
-      ratingLine = `<div class="rating-change">Yeni ${categoryLabel} puanın: ${myRatingAfter}</div>`;
+      const catLabel = state.timeControlCategory ? categoryLabel(state.timeControlCategory) : '';
+      ratingLine = `<div class="rating-change">${I18N.t('game.newRatingLine', { category: catLabel, rating: myRatingAfter })}</div>`;
     }
     banner.innerHTML = `<h3>${outcomeText}</h3><div>${resultReasonText(state.resultReason)}</div>${ratingLine}`;
     banner.classList.remove('hidden');
@@ -603,7 +607,7 @@
     if (!opponentOffered) {
       const iOffered = !!state.rematchOfferBy && state.rematchOfferBy === myColor;
       offerBtn.disabled = iOffered;
-      offerBtn.textContent = iOffered ? 'Teklif gönderildi, rakip bekleniyor...' : 'Yeni Oyun Teklif Et';
+      offerBtn.textContent = iOffered ? I18N.t('game.rematchPending') : I18N.t('game.offerRematch');
     }
   }
 
@@ -612,8 +616,8 @@
     const oppName = myColor === 'white' ? state.blackUsername : state.whiteUsername;
     const myRating = myColor === 'white' ? state.whiteRating : state.blackRating;
     const oppRating = myColor === 'white' ? state.blackRating : state.whiteRating;
-    $('bottomName').textContent = (myName || me.username) + ' (Sen)';
-    $('topName').textContent = oppName || 'Rakip';
+    $('bottomName').textContent = (myName || me.username) + I18N.t('common.youSuffix');
+    $('topName').textContent = oppName || I18N.t('common.opponent');
     // İsimlerin yanında, bu oyunun süre kontrolü KATEGORİSİNE ait Elo puanı
     // (hem kendimin hem rakibimin) gösteriliyor — bkz. server.js'de
     // eklenen state.whiteRating/blackRating.
@@ -646,12 +650,12 @@
   // ---------------- Butonlar ----------------
 
   $('resignBtn').addEventListener('click', async () => {
-    if (!confirm('Teslim olmak istediğine emin misin?')) return;
+    if (!confirm(I18N.t('game.confirmResign'))) return;
     try {
       const { state: newState } = await api('POST', `/api/game/${gameId}/resign`);
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('offerDrawBtn').addEventListener('click', async () => {
@@ -659,7 +663,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/offer-draw`);
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('acceptDrawBtn').addEventListener('click', async () => {
@@ -667,7 +671,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/respond-draw`, { accept: true });
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('declineDrawBtn').addEventListener('click', async () => {
@@ -675,7 +679,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/respond-draw`, { accept: false });
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('offerRematchBtn').addEventListener('click', async () => {
@@ -683,7 +687,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/offer-rematch`);
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('acceptRematchBtn').addEventListener('click', async () => {
@@ -693,7 +697,7 @@
       renderAll();
       // Kabul edilince sunucu yeni oyunu başlatıp 'match_found' olayını
       // gönderecek — yönlendirme o olay geldiğinde yapılıyor.
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   $('openAnalysisBtn').addEventListener('click', () => {
@@ -705,7 +709,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/respond-rematch`, { accept: false });
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert(I18N.tErr(err)); }
   });
 
   // ---------------- SSE ----------------
@@ -773,6 +777,7 @@
       window.location.href = '/';
       return;
     }
+    I18N.syncFromAccount(me.language);
     $('userName').textContent = me.username;
 
     try {
@@ -787,7 +792,7 @@
         if (state.rematchOfferBy === undefined) state.rematchOfferBy = null;
       }
     } catch (err) {
-      setStatusMessage('Oyun yüklenemedi: ' + err.message, true);
+      setStatusMessage(I18N.t('err.gameLoadFailedPrefix') + I18N.tErr(err), true);
       return;
     }
 
@@ -798,7 +803,7 @@
 
     myColor = state.whiteId === me.id ? 'white' : (state.blackId === me.id ? 'black' : null);
     if (!myColor) {
-      setStatusMessage('Bu oyunun oyuncusu değilsin.', true);
+      setStatusMessage(I18N.t('err.NOT_A_PLAYER'), true);
       return;
     }
     flipped = myColor === 'black';
@@ -859,6 +864,13 @@
       } catch { }
     });
   }
+
+  // ---------------- Dil değişince görünen ekranı yeniden çiz ----------------
+  document.title = I18N.t('title.game');
+  window.addEventListener('langchange', () => {
+    document.title = I18N.t('title.game');
+    if (state) { renderPlayerNames(); renderAll(); }
+  });
 
   initBoardColorSettings();
   init();

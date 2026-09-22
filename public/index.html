@@ -9,10 +9,16 @@
 <body>
 
 <header class="topbar">
-  <h1>6x6 <span class="accent">Satranç</span> Online</h1>
-  <div class="user-badge hidden" id="userBadge">
-    <span id="userName"></span>
-    <button class="secondary" id="logoutBtn">Çıkış</button>
+  <h1 data-i18n-html="brand.titleHome">6x6 <span class="accent">Satranç</span> Online</h1>
+  <div class="topbar-right">
+    <div class="lang-switch" id="langSwitch">
+      <button type="button" data-lang="tr">TR</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+    <div class="user-badge hidden" id="userBadge">
+      <span id="userName"></span>
+      <button class="secondary" id="logoutBtn" data-i18n="nav.logout">Çıkış</button>
+    </div>
   </div>
 </header>
 
@@ -20,17 +26,17 @@
 <div class="container auth-wrap" id="authView">
   <div class="card">
     <div class="auth-tabs">
-      <button class="active" id="tabLogin">Giriş Yap</button>
-      <button id="tabRegister">Kayıt Ol</button>
+      <button class="active" id="tabLogin" data-i18n="auth.login">Giriş Yap</button>
+      <button id="tabRegister" data-i18n="auth.register">Kayıt Ol</button>
     </div>
-    <h2 id="authTitle">Giriş Yap</h2>
+    <h2 id="authTitle" data-i18n="auth.login">Giriş Yap</h2>
     <form class="auth-form" id="authForm">
-      <input type="text" id="authUsername" placeholder="Kullanıcı adı" autocomplete="username" required>
-      <input type="password" id="authPassword" placeholder="Parola" autocomplete="current-password" required>
+      <input type="text" id="authUsername" placeholder="Kullanıcı adı" data-i18n-placeholder="auth.usernamePlaceholder" autocomplete="username" required>
+      <input type="password" id="authPassword" placeholder="Parola" data-i18n-placeholder="auth.passwordPlaceholder" autocomplete="current-password" required>
       <div class="error-text" id="authError"></div>
-      <button class="primary" type="submit" id="authSubmit">Giriş Yap</button>
+      <button class="primary" type="submit" id="authSubmit" data-i18n="auth.login">Giriş Yap</button>
     </form>
-    <p class="hint-text">Kullanıcı adı 3-24 karakter, parola en az 6 karakter olmalı.</p>
+    <p class="hint-text" data-i18n="auth.hint">Kullanıcı adı 3-24 karakter, parola en az 6 karakter olmalı.</p>
   </div>
 </div>
 
@@ -38,45 +44,51 @@
 <div class="container hidden" id="lobbyView">
   <div class="lobby-grid">
     <div class="card">
-      <h3>Hızlı Eşleşme</h3>
+      <h3 data-i18n="lobby.quickMatchTitle">Hızlı Eşleşme</h3>
       <div class="tc-list" id="tcList"></div>
-      <button class="primary" id="findMatchBtn" style="width:100%">Oyun Bul</button>
+      <button class="primary" id="findMatchBtn" style="width:100%" data-i18n="lobby.findMatch">Oyun Bul</button>
       <div class="queue-status hidden" id="queueStatus">
-        Rakip aranıyor<span id="queueDots">...</span>
-        <div style="margin-top:10px"><button class="secondary" id="cancelQueueBtn">İptal Et</button></div>
+        <span data-i18n="lobby.searchingOpponent">Rakip aranıyor</span><span id="queueDots">...</span>
+        <div style="margin-top:10px"><button class="secondary" id="cancelQueueBtn" data-i18n="lobby.cancelQueue">İptal Et</button></div>
       </div>
       <div class="hidden" id="activeGameBanner" style="margin-top:14px">
         <div class="draw-offer-banner">
-          <span>Devam eden bir oyunun var.</span>
-          <button class="primary" id="resumeGameBtn">Oyuna Dön</button>
+          <span data-i18n="lobby.activeGameNotice">Devam eden bir oyunun var.</span>
+          <button class="primary" id="resumeGameBtn" data-i18n="lobby.resumeGame">Oyuna Dön</button>
         </div>
       </div>
       <div style="margin-top:14px; text-align:center">
-        <a href="/analysis.html" class="hint-text">Serbest Analiz Tahtası (oyun oynamadan)</a>
+        <a href="/analysis.html" class="hint-text" data-i18n="lobby.freeAnalysisLink">Serbest Analiz Tahtası (oyun oynamadan)</a>
       </div>
     </div>
 
     <div class="card">
-      <h3>Liderlik Tablosu</h3>
+      <h3 data-i18n="lobby.leaderboardTitle">Liderlik Tablosu</h3>
       <div class="leaderboard-tabs" id="leaderboardTabs">
-        <button class="active" data-category="bullet">Bullet</button>
-        <button data-category="blitz">Blitz</button>
-        <button data-category="rapid">Rapid</button>
-        <button data-category="classical">Klasik</button>
+        <button class="active" data-category="bullet" data-i18n="cat.bullet">Bullet</button>
+        <button data-category="blitz" data-i18n="cat.blitz">Blitz</button>
+        <button data-category="rapid" data-i18n="cat.rapid">Rapid</button>
+        <button data-category="classical" data-i18n="cat.classical">Klasik</button>
       </div>
       <table class="leaderboard-table">
-        <thead><tr><th>#</th><th>Kullanıcı</th><th>Puan</th><th>G/M/B</th></tr></thead>
+        <thead><tr>
+          <th data-i18n="lobby.thRank">#</th>
+          <th data-i18n="lobby.thUser">Kullanıcı</th>
+          <th data-i18n="lobby.thRating">Puan</th>
+          <th data-i18n="lobby.thRecord">G/M/B</th>
+        </tr></thead>
         <tbody id="leaderboardBody"></tbody>
       </table>
     </div>
 
     <div class="card" style="grid-column: 1 / -1">
-      <h3>Son Oyunların</h3>
-      <ul class="games-list" id="myGamesList"><li class="hint-text">Henüz oyun yok.</li></ul>
+      <h3 data-i18n="lobby.recentGamesTitle">Son Oyunların</h3>
+      <ul class="games-list" id="myGamesList"><li class="hint-text" data-i18n="lobby.noGamesYet">Henüz oyun yok.</li></ul>
     </div>
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

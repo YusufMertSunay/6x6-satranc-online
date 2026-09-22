@@ -19,7 +19,7 @@
     let json = null;
     try { json = await res.json(); } catch { }
     if (!res.ok) {
-      const err = new Error((json && json.error) || 'Bilinmeyen hata');
+      const err = new Error((json && json.error) || I18N.t('err.unknown'));
       err.payload = json;
       err.status = res.status;
       throw err;
@@ -33,8 +33,8 @@
     authMode = mode;
     $('tabLogin').classList.toggle('active', mode === 'login');
     $('tabRegister').classList.toggle('active', mode === 'register');
-    $('authTitle').textContent = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
-    $('authSubmit').textContent = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    $('authTitle').textContent = mode === 'login' ? I18N.t('auth.login') : I18N.t('auth.register');
+    $('authSubmit').textContent = mode === 'login' ? I18N.t('auth.login') : I18N.t('auth.register');
     $('authError').textContent = '';
   }
 
@@ -50,9 +50,10 @@
     try {
       const user = await api('POST', authMode === 'login' ? '/api/login' : '/api/register', { username, password });
       currentUser = user;
+      I18N.syncFromAccount(user.language);
       await enterLobby();
     } catch (err) {
-      $('authError').textContent = err.message;
+      $('authError').textContent = I18N.tErr(err);
     } finally {
       $('authSubmit').disabled = false;
     }
@@ -85,6 +86,20 @@
     return (currentUser && currentUser.ratings && currentUser.ratings[category]) ?? 1500;
   }
 
+  // Sunucudan gelen "label" alanı (ör. "3 dk | +2 sn (Blitz)") HÂLÂ Türkçe
+  // metin -- dil değişince yeniden çevrilebilsin diye onu KULLANMIYORUZ,
+  // bunun yerine "key" (ör. "3+2" = 3 dakika + 2 saniye artış) ve
+  // "category" alanlarından etiketi kendimiz, o anki arayüz dilinde
+  // üretiyoruz (bkz. lib/gameManager.js: TIME_CONTROLS -- key formatı her
+  // zaman "dakika+artışSaniyesi").
+  function formatTimeControlLabel(tc) {
+    const [minutes, incSeconds] = tc.key.split('+').map(Number);
+    let label = I18N.t('tc.minutesShort', { m: minutes });
+    if (incSeconds > 0) label += I18N.t('tc.incrementShort', { s: incSeconds });
+    label += ' (' + I18N.t('cat.' + tc.category) + ')';
+    return label;
+  }
+
   async function loadTimeControls() {
     const { timeControls: tcs } = await api('GET', '/api/time-controls');
     timeControls = tcs;
@@ -94,7 +109,7 @@
       const div = document.createElement('div');
       div.className = 'tc-option' + (i === 0 ? ' selected' : '');
       div.dataset.key = tc.key;
-      div.innerHTML = `<span class="label">${tc.label}</span><span class="tc-rating">${ratingFor(tc.category)}</span>`;
+      div.innerHTML = `<span class="label">${formatTimeControlLabel(tc)}</span><span class="tc-rating">${ratingFor(tc.category)}</span>`;
       div.addEventListener('click', () => {
         document.querySelectorAll('.tc-option').forEach(el => el.classList.remove('selected'));
         div.classList.add('selected');
@@ -130,7 +145,7 @@
     const list = $('myGamesList');
     list.innerHTML = '';
     if (!games.length) {
-      list.innerHTML = '<li class="hint-text">Henüz oyun yok.</li>';
+      list.innerHTML = `<li class="hint-text">${I18N.t('lobby.noGamesYet')}</li>`;
       return;
     }
     games.slice(0, 10).forEach(g => {
@@ -146,9 +161,9 @@
   }
 
   function describeResult(g, meWhite) {
-    if (g.winnerColor === null) return 'Berabere';
+    if (g.winnerColor === null) return I18N.t('result.draw');
     const iWon = (g.winnerColor === 'white' && meWhite) || (g.winnerColor === 'black' && !meWhite);
-    return iWon ? 'Kazandın' : 'Kaybettin';
+    return iWon ? I18N.t('result.won') : I18N.t('result.lost');
   }
 
   function escapeHtml(s) {
@@ -179,7 +194,7 @@
         $('queueDots').textContent = '.'.repeat(dots);
       }, 500);
     } catch (err) {
-      alert(err.message);
+      alert(I18N.tErr(err));
     }
   });
 
@@ -217,11 +232,27 @@
     }
   }
 
+  // ---------------- Dil değişince görünen ekranı yeniden çiz ----------------
+  // Statik metinler zaten I18N.applyStaticTranslations() ile güncelleniyor
+  // (bkz. i18n.js: setLang) -- burada sadece JS'in DİNAMİK olarak ürettiği
+  // (sunucudan gelen veriyle doldurulan) kısımları yeniden çiziyoruz.
+  document.title = I18N.t('title.lobby');
+  window.addEventListener('langchange', () => {
+    document.title = I18N.t('title.lobby');
+    if (!$('authView').classList.contains('hidden')) setAuthMode(authMode);
+    if (!$('lobbyView').classList.contains('hidden')) {
+      loadTimeControls();
+      loadLeaderboard();
+      loadMyGames();
+    }
+  });
+
   // ---------------- Başlangıç: oturum var mı kontrol et ----------------
   (async function init() {
     try {
       const me = await api('GET', '/api/me');
       currentUser = me;
+      I18N.syncFromAccount(me.language);
       await enterLobby();
     } catch {
       $('authView').classList.remove('hidden');

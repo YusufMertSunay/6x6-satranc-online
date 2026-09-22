@@ -9,10 +9,16 @@
 <body>
 
 <header class="topbar">
-  <h1><a href="/" style="text-decoration:none"><span class="accent">6x6</span> Satranç Online</a></h1>
-  <div class="user-badge" id="userBadge">
-    <span id="userName"></span>
-    <span class="rating" id="userRating"></span>
+  <h1><a href="/" style="text-decoration:none" data-i18n-html="brand.titleLinked"><span class="accent">6x6</span> Satranç Online</a></h1>
+  <div class="topbar-right">
+    <div class="lang-switch" id="langSwitch">
+      <button type="button" data-lang="tr">TR</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+    <div class="user-badge" id="userBadge">
+      <span id="userName"></span>
+      <span class="rating" id="userRating"></span>
+    </div>
   </div>
 </header>
 
@@ -38,64 +44,65 @@
 
     <div class="board-color-settings" id="boardColorSettings">
       <div class="bcs-row">
-        <label for="lightColorInput">Açık kareler</label>
+        <label for="lightColorInput" data-i18n="board.lightSquares">Açık kareler</label>
         <input type="color" id="lightColorInput" value="#ebecd0">
       </div>
       <div class="bcs-row">
-        <label for="darkColorInput">Koyu kareler</label>
+        <label for="darkColorInput" data-i18n="board.darkSquares">Koyu kareler</label>
         <input type="color" id="darkColorInput" value="#779556">
       </div>
-      <button class="secondary" type="button" id="resetBoardColorsBtn">Varsayılana Dön</button>
+      <button class="secondary" type="button" id="resetBoardColorsBtn" data-i18n="board.resetColors">Varsayılana Dön</button>
     </div>
   </div>
 
   <div class="side-panel">
-    <div class="status-box" id="statusBox">Yükleniyor...</div>
+    <div class="status-box" id="statusBox" data-i18n="status.loading">Yükleniyor...</div>
 
     <div class="hidden" id="gameOverBanner" class="game-over-banner"></div>
 
     <div class="hidden draw-offer-banner" id="drawOfferBanner">
-      <span>Rakibin beraberlik teklif etti.</span>
+      <span data-i18n="game.drawOfferedByOpponent">Rakibin beraberlik teklif etti.</span>
       <div style="display:flex; gap:6px">
-        <button class="primary" id="acceptDrawBtn">Kabul Et</button>
-        <button class="secondary" id="declineDrawBtn">Reddet</button>
+        <button class="primary" id="acceptDrawBtn" data-i18n="common.accept">Kabul Et</button>
+        <button class="secondary" id="declineDrawBtn" data-i18n="common.decline">Reddet</button>
       </div>
     </div>
 
     <div class="hidden draw-offer-banner" id="rematchOfferBanner">
-      <span>Rakibin yeni oyun teklif etti.</span>
+      <span data-i18n="game.rematchOfferedByOpponent">Rakibin yeni oyun teklif etti.</span>
       <div style="display:flex; gap:6px">
-        <button class="primary" id="acceptRematchBtn">Kabul Et</button>
-        <button class="secondary" id="declineRematchBtn">Reddet</button>
+        <button class="primary" id="acceptRematchBtn" data-i18n="common.accept">Kabul Et</button>
+        <button class="secondary" id="declineRematchBtn" data-i18n="common.decline">Reddet</button>
       </div>
     </div>
 
     <div class="hidden action-row" id="rematchActionRow">
-      <button class="primary" id="offerRematchBtn">Yeni Oyun Teklif Et</button>
+      <button class="primary" id="offerRematchBtn" data-i18n="game.offerRematch">Yeni Oyun Teklif Et</button>
     </div>
 
     <div class="hidden action-row" id="analysisActionRow">
-      <button class="secondary" id="openAnalysisBtn" type="button">Analiz Tahtasını Aç</button>
+      <button class="secondary" id="openAnalysisBtn" type="button" data-i18n="game.openAnalysis">Analiz Tahtasını Aç</button>
     </div>
 
     <div class="moves-box" id="movesBox"></div>
 
     <div class="action-row">
-      <button class="secondary" id="offerDrawBtn">Beraberlik Teklif Et</button>
-      <button class="danger" id="resignBtn">Teslim Ol</button>
+      <button class="secondary" id="offerDrawBtn" data-i18n="game.offerDraw">Beraberlik Teklif Et</button>
+      <button class="danger" id="resignBtn" data-i18n="game.resign">Teslim Ol</button>
     </div>
 
-    <a href="/" class="hint-text" style="text-align:center">← Lobiye dön</a>
+    <a href="/" class="hint-text" style="text-align:center" data-i18n="nav.backToLobby">← Lobiye dön</a>
   </div>
 </div>
 
 <div class="modal-overlay hidden" id="promotionModal">
   <div class="promotion-box">
-    <div>Terfi edecek taşı seç</div>
+    <div data-i18n="game.choosePromotion">Terfi edecek taşı seç</div>
     <div class="options" id="promotionOptions"></div>
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/game.js"></script>
 </body>
 </html>
