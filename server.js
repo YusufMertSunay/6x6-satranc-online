@@ -117,7 +117,6 @@ const ERROR_CODES = {
   'Bu meydan okumayı yanıtlama yetkin yok.': 'CHALLENGE_NOT_YOURS',
   'Bu meydan okumayı iptal etme yetkin yok.': 'CHALLENGE_CANCEL_NOT_YOURS',
   'Bu oyuncuya şu anda meydan okuyamazsın.': 'OFFER_ON_COOLDOWN',
-  'Bu oyuncuyla şu anda hiçbir şekilde eşleşemezsin.': 'FULLY_BLOCKED',
 };
 
 // Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik

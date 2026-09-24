@@ -199,7 +199,6 @@
       'err.CHALLENGE_NOT_YOURS': 'Bu meydan okumayı yanıtlayamazsın.',
       'err.CHALLENGE_CANCEL_NOT_YOURS': 'Bu meydan okumayı iptal edemezsin.',
       'err.OFFER_ON_COOLDOWN': 'Bu oyuncuya {duration} sonra tekrar teklif gönderebilirsin (art arda iki kez reddedildi).',
-      'err.FULLY_BLOCKED': 'Bu oyuncuyla {duration} boyunca (ne özel davetle ne de hızlı eşleşmeyle) eşleşemezsin.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
       'duration.hoursMinutes': '{h} saat {m} dakika',
@@ -374,7 +373,6 @@
       'err.CHALLENGE_NOT_YOURS': "You can't respond to that challenge.",
       'err.CHALLENGE_CANCEL_NOT_YOURS': "You can't cancel that challenge.",
       'err.OFFER_ON_COOLDOWN': "You can send this player another offer in {duration} (your last two in a row were declined).",
-      'err.FULLY_BLOCKED': "You can't be matched with this player (privately or via quick match) for {duration}.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----
       'duration.hoursMinutes': '{h}h {m}m',
@@ -443,13 +441,14 @@
   }
 
   // Meydan okuma/yeni oyun teklifi gönderirken alınabilecek, SÜRE İÇEREN
-  // (dinamik) hatalar için özel bir çeviri -- normal tErr() sadece sabit
-  // metinleri çevirebiliyor, bu ikisi ise sunucudan gelen retryAfterMs
-  // değerine göre "{duration}" yer tutucusunu doldurmamız gerekiyor.
+  // (dinamik) "teklif soğuma" hatası için özel bir çeviri -- normal tErr()
+  // sadece sabit metinleri çevirebiliyor, bu ise sunucudan gelen
+  // retryAfterMs değerine göre "{duration}" yer tutucusunu doldurmamız
+  // gerekiyor.
   function describeOfferError(err) {
     const payload = err && err.payload;
     const code = payload && payload.errorCode;
-    if ((code === 'OFFER_ON_COOLDOWN' || code === 'FULLY_BLOCKED') && payload.retryAfterMs != null) {
+    if (code === 'OFFER_ON_COOLDOWN' && payload.retryAfterMs != null) {
       return t('err.' + code, { duration: formatDuration(payload.retryAfterMs) });
     }
     return tErr(err);
