@@ -133,6 +133,31 @@ button.danger:hover { background: var(--danger-hover); }
 button.secondary { background: var(--bg-panel-light); color: var(--text); }
 button.secondary:hover { background: #4a4642; }
 
+/* .btn -- gezinme bağlantılarını (Lobiye dön / Oyuna dön / Serbest Analiz
+   Tahtası) küçük bir metin yerine GERÇEK, göze çarpan bir buton gibi
+   göstermek için: bunlar <a> etiketi olarak kalıyor (href davranışını ve
+   analysis.js'in dinamik olarak href atadığı #backLink gibi mevcut kodu
+   BOZMAMAK için), ama .primary/.secondary butonlarıyla AYNI görünümü
+   .btn sınıfı üzerinden alıyorlar. */
+.btn {
+  display: inline-block;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background 0.15s;
+  text-decoration: none;
+  text-align: center;
+  box-sizing: border-box;
+}
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.secondary { background: var(--bg-panel-light); color: var(--text); }
+.btn.secondary:hover { background: #4a4642; }
+
 input {
   font-family: inherit;
   background: var(--bg-panel-light);
@@ -233,6 +258,21 @@ input:focus { outline: 2px solid var(--accent); }
 /* Her süre kontrolünün yanında, o kategorideki (Bullet/Blitz/Rapid/Klasik)
    Elo puanının gösterilmesi için — bkz. app.js loadTimeControls(). */
 .tc-option span.tc-rating { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* ---- Doğrudan meydan okuma (belirli bir oyuncuya davet) ---- */
+.challenge-color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 14px;
+}
+.challenge-color-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.challenge-color-options input[type="radio"] { width: auto; }
 
 /* Liderlik tablosu artık kategoriye göre (Bullet/Blitz/Rapid/Klasik) ayrı
    olduğu için, hangi kategörinin gösterildiğini seçmek için küçük sekmeler. */

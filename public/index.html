@@ -58,7 +58,39 @@
         </div>
       </div>
       <div style="margin-top:14px; text-align:center">
-        <a href="/analysis.html" class="hint-text" data-i18n="lobby.freeAnalysisLink">Serbest Analiz Tahtası (oyun oynamadan)</a>
+        <a href="/analysis.html" class="btn secondary" style="width:100%" data-i18n="lobby.freeAnalysisLink">Serbest Analiz Tahtası (oyun oynamadan)</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="lobby.challengeTitle">Bir Oyuncuya Meydan Oku</h3>
+      <form class="auth-form" id="challengeForm">
+        <input type="text" id="challengeUsername" placeholder="Kullanıcı adı" data-i18n-placeholder="lobby.challengeUsernamePlaceholder" autocomplete="off" required>
+        <div>
+          <div class="hint-text" style="margin-bottom:6px" data-i18n="lobby.challengeColorLabel">Renginiz:</div>
+          <div class="challenge-color-options">
+            <label><input type="radio" name="challengeColor" value="white" checked><span data-i18n="lobby.challengeColorWhite">Beyaz</span></label>
+            <label><input type="radio" name="challengeColor" value="black"><span data-i18n="lobby.challengeColorBlack">Siyah</span></label>
+            <label><input type="radio" name="challengeColor" value="random"><span data-i18n="lobby.challengeColorRandom">Rastgele</span></label>
+          </div>
+        </div>
+        <select id="challengeTc"></select>
+        <div class="error-text" id="challengeError"></div>
+        <button class="primary" type="submit" id="challengeSendBtn" data-i18n="lobby.challengeSend">Meydan Oku</button>
+      </form>
+      <div class="hidden" id="challengeOutgoing">
+        <p class="hint-text" id="challengeOutgoingText"></p>
+        <button class="secondary" id="challengeCancelBtn" data-i18n="lobby.challengeCancelBtn">İptal Et</button>
+      </div>
+    </div>
+
+    <div class="hidden" id="challengeIncoming" style="grid-column: 1 / -1">
+      <div class="draw-offer-banner">
+        <span id="challengeIncomingText"></span>
+        <div style="display:flex; gap:8px">
+          <button class="primary" id="challengeAcceptBtn" data-i18n="common.accept">Kabul Et</button>
+          <button class="secondary" id="challengeDeclineBtn" data-i18n="common.decline">Reddet</button>
+        </div>
       </div>
     </div>
 

@@ -63,6 +63,7 @@
     try { await api('POST', '/api/logout'); } catch { }
     if (sse) sse.close();
     currentUser = null;
+    resetChallengeState();
     $('userBadge').classList.add('hidden');
     $('lobbyView').classList.add('hidden');
     $('authView').classList.remove('hidden');
@@ -103,6 +104,7 @@
   async function loadTimeControls() {
     const { timeControls: tcs } = await api('GET', '/api/time-controls');
     timeControls = tcs;
+    renderChallengeTimeControls();
     const list = $('tcList');
     list.innerHTML = '';
     // Bu fonksiyon dil değişince (langchange) de tekrar çağrılıyor (etiketleri
@@ -237,12 +239,154 @@
     $('queueStatus').classList.add('hidden');
   });
 
+  // ---------------- Doğrudan meydan okuma (belirli bir oyuncuya davet) ----------------
+  // Kullanıcı isteği: rakip LİSTEDEN değil, kullanıcı adı YAZARAK aranıyor;
+  // sadece o an SİTEDE (çevrimiçi) olan oyuncular meydan okunabilir (bu
+  // kontrol sunucu tarafında gameManager.createChallenge içinde yapılıyor —
+  // burada sadece sunucunun döndürdüğü hatayı gösteriyoruz).
+  let outgoingChallenge = null; // { challengeId, targetUsername }
+  let incomingChallenge = null; // { challengeId, fromUsername, timeControlKey, colorForTarget }
+
+  function renderChallengeTimeControls() {
+    const sel = $('challengeTc');
+    if (!sel) return;
+    const prevValue = sel.value;
+    sel.innerHTML = timeControls.map(tc => `<option value="${tc.key}">${formatTimeControlLabel(tc)}</option>`).join('');
+    if (prevValue && timeControls.some(tc => tc.key === prevValue)) sel.value = prevValue;
+  }
+
+  function renderOutgoingChallenge() {
+    if (outgoingChallenge) {
+      $('challengeForm').classList.add('hidden');
+      $('challengeOutgoing').classList.remove('hidden');
+      $('challengeOutgoingText').textContent = I18N.t('lobby.challengePendingOutgoing', { username: outgoingChallenge.targetUsername });
+    } else {
+      $('challengeForm').classList.remove('hidden');
+      $('challengeOutgoing').classList.add('hidden');
+    }
+  }
+
+  function colorLabel(c) {
+    if (c === 'white') return I18N.t('common.white');
+    if (c === 'black') return I18N.t('common.black');
+    return I18N.t('common.random');
+  }
+
+  function renderIncomingChallenge() {
+    const box = $('challengeIncoming');
+    if (!incomingChallenge) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const tc = timeControls.find(t => t.key === incomingChallenge.timeControlKey);
+    const tcLabel = tc ? formatTimeControlLabel(tc) : incomingChallenge.timeControlKey;
+    $('challengeIncomingText').textContent = I18N.t('lobby.challengeIncomingText', {
+      username: incomingChallenge.fromUsername,
+      timeControl: tcLabel,
+      color: colorLabel(incomingChallenge.colorForTarget),
+    });
+  }
+
+  function resetChallengeState() {
+    outgoingChallenge = null;
+    incomingChallenge = null;
+    renderOutgoingChallenge();
+    renderIncomingChallenge();
+    $('challengeError').textContent = '';
+    $('challengeForm').reset();
+  }
+
+  $('challengeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = $('challengeUsername').value.trim();
+    if (!username) return;
+    const colorInput = document.querySelector('input[name="challengeColor"]:checked');
+    const color = colorInput ? colorInput.value : 'random';
+    const timeControlKey = $('challengeTc').value;
+    $('challengeError').textContent = '';
+    $('challengeSendBtn').disabled = true;
+    try {
+      const res = await api('POST', '/api/challenge/send', { username, timeControlKey, color });
+      outgoingChallenge = { challengeId: res.challengeId, targetUsername: username };
+      renderOutgoingChallenge();
+    } catch (err) {
+      $('challengeError').textContent = I18N.tErr(err);
+    } finally {
+      $('challengeSendBtn').disabled = false;
+    }
+  });
+
+  $('challengeCancelBtn').addEventListener('click', async () => {
+    if (!outgoingChallenge) return;
+    try { await api('POST', '/api/challenge/cancel', { challengeId: outgoingChallenge.challengeId }); } catch { /* zaten geçersizse önemli değil */ }
+    outgoingChallenge = null;
+    renderOutgoingChallenge();
+  });
+
+  $('challengeAcceptBtn').addEventListener('click', async () => {
+    if (!incomingChallenge) return;
+    const challengeId = incomingChallenge.challengeId;
+    try {
+      await api('POST', '/api/challenge/respond', { challengeId, accept: true });
+      // Kabul başarılıysa sunucu her iki tarafa da 'match_found' gönderiyor
+      // (aşağıdaki connectSse() içindeki dinleyici zaten yönlendirmeyi yapar).
+    } catch (err) {
+      alert(I18N.tErr(err));
+    }
+    incomingChallenge = null;
+    renderIncomingChallenge();
+  });
+
+  $('challengeDeclineBtn').addEventListener('click', async () => {
+    if (!incomingChallenge) return;
+    try { await api('POST', '/api/challenge/respond', { challengeId: incomingChallenge.challengeId, accept: false }); } catch { /* önemli değil */ }
+    incomingChallenge = null;
+    renderIncomingChallenge();
+  });
+
   function connectSse() {
     if (sse) sse.close();
     sse = new EventSource('/events');
     sse.addEventListener('match_found', (e) => {
       const data = JSON.parse(e.data);
       window.location.href = '/game.html?id=' + data.gameId;
+    });
+    sse.addEventListener('challenge_received', (e) => {
+      const data = JSON.parse(e.data);
+      incomingChallenge = {
+        challengeId: data.challengeId,
+        fromUsername: data.fromUsername,
+        timeControlKey: data.timeControlKey,
+        colorForTarget: data.colorForTarget,
+      };
+      renderIncomingChallenge();
+    });
+    sse.addEventListener('challenge_declined', (e) => {
+      const data = JSON.parse(e.data);
+      if (outgoingChallenge && outgoingChallenge.challengeId === data.challengeId) {
+        const username = outgoingChallenge.targetUsername;
+        outgoingChallenge = null;
+        renderOutgoingChallenge();
+        alert(I18N.t('lobby.challengeDeclinedByTarget', { username }));
+      }
+    });
+    sse.addEventListener('challenge_cancelled', (e) => {
+      const data = JSON.parse(e.data);
+      if (incomingChallenge && incomingChallenge.challengeId === data.challengeId) {
+        incomingChallenge = null;
+        renderIncomingChallenge();
+      }
+    });
+    sse.addEventListener('challenge_expired', (e) => {
+      const data = JSON.parse(e.data);
+      if (outgoingChallenge && outgoingChallenge.challengeId === data.challengeId) {
+        const username = outgoingChallenge.targetUsername;
+        outgoingChallenge = null;
+        renderOutgoingChallenge();
+        alert(I18N.t('lobby.challengeExpiredOutgoing', { username }));
+      }
+      if (incomingChallenge && incomingChallenge.challengeId === data.challengeId) {
+        incomingChallenge = null;
+        renderIncomingChallenge();
+      }
     });
     sse.onerror = () => { /* tarayıcı otomatik olarak yeniden bağlanmayı dener */ };
   }
@@ -254,6 +398,7 @@
     $('userName').textContent = currentUser.username;
     // Puan rozeti loadTimeControls() içinde, ilk (varsayılan seçili) süre
     // kontrolünün kategorisine göre dolduruluyor.
+    resetChallengeState();
     connectSse();
     await Promise.all([loadTimeControls(), loadLeaderboard(), loadMyGames()]);
     const activeGameId = await checkActiveGame();
@@ -275,6 +420,8 @@
       loadTimeControls();
       loadLeaderboard();
       loadMyGames();
+      renderOutgoingChallenge();
+      renderIncomingChallenge();
     }
   });
 

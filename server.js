@@ -108,6 +108,14 @@ const ERROR_CODES = {
   'Geçersiz dil.': 'INVALID_LANGUAGE',
   'Kitap hamlesi silinemez.': 'BOOK_MOVE_UNDELETABLE',
   'Düğüm bulunamadı.': 'NODE_NOT_FOUND',
+  // ---- Doğrudan meydan okuma ----
+  'Oyuncu bulunamadı.': 'PLAYER_NOT_FOUND',
+  'Kendine meydan okuyamazsın.': 'CANNOT_CHALLENGE_SELF',
+  'Oyuncu şu anda çevrimiçi değil.': 'PLAYER_NOT_ONLINE',
+  'Geçersiz renk seçimi.': 'INVALID_COLOR_CHOICE',
+  'Bu meydan okuma artık geçerli değil.': 'CHALLENGE_NOT_FOUND',
+  'Bu meydan okumayı yanıtlama yetkin yok.': 'CHALLENGE_NOT_YOURS',
+  'Bu meydan okumayı iptal etme yetkin yok.': 'CHALLENGE_CANCEL_NOT_YOURS',
 };
 
 function errJson(res, status, message, extra) {
@@ -704,6 +712,37 @@ async function handleApi(req, res, pathname, url) {
   if (pathname === '/api/queue/leave' && req.method === 'POST') {
     gameManager.leaveQueue(user.id);
     return sendJson(res, 200, { ok: true });
+  }
+
+  // ---- Doğrudan meydan okuma (belirli, o an çevrimiçi olan bir oyuncuya) ----
+  if (pathname === '/api/challenge/send' && req.method === 'POST') {
+    const { username, timeControlKey, color } = await readBody(req);
+    try {
+      const result = gameManager.createChallenge(user.id, username, timeControlKey, color);
+      return sendJson(res, 200, Object.assign({ ok: true }, result));
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/challenge/respond' && req.method === 'POST') {
+    const { challengeId, accept } = await readBody(req);
+    try {
+      const result = gameManager.respondChallenge(challengeId, user.id, !!accept);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/challenge/cancel' && req.method === 'POST') {
+    const { challengeId } = await readBody(req);
+    try {
+      const result = gameManager.cancelChallenge(challengeId, user.id);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
   }
 
   const gameIdMatch = pathname.match(/^\/api\/game\/([^/]+)(\/.*)?$/);
