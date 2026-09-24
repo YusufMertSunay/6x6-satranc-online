@@ -536,6 +536,20 @@ input:focus { outline: 2px solid var(--accent); }
 .status-box.you-win { color: var(--accent); }
 .status-box.you-lose { color: var(--danger); }
 
+/* Puansız (dostluk) oyun etiketi -- bkz. game.js: renderUnrankedTag. */
+.unranked-tag {
+  display: block;
+  text-align: center;
+  background: var(--bg-panel-light);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .moves-box {
   background: var(--bg-panel);
   border-radius: 8px;

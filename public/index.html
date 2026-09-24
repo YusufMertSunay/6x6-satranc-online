@@ -74,6 +74,13 @@
             <label><input type="radio" name="challengeColor" value="random"><span data-i18n="lobby.challengeColorRandom">Rastgele</span></label>
           </div>
         </div>
+        <div>
+          <div class="hint-text" style="margin-bottom:6px" data-i18n="lobby.challengeRankedLabel">Oyun türü:</div>
+          <div class="challenge-color-options">
+            <label><input type="radio" name="challengeRanked" value="ranked" checked><span data-i18n="lobby.challengeRankedYes">Puanlı</span></label>
+            <label><input type="radio" name="challengeRanked" value="unranked"><span data-i18n="lobby.challengeRankedNo">Puansız</span></label>
+          </div>
+        </div>
         <select id="challengeTc"></select>
         <div class="error-text" id="challengeError"></div>
         <button class="primary" type="submit" id="challengeSendBtn" data-i18n="lobby.challengeSend">Meydan Oku</button>

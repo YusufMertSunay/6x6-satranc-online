@@ -64,12 +64,15 @@
       'lobby.challengeColorWhite': 'Beyaz',
       'lobby.challengeColorBlack': 'Siyah',
       'lobby.challengeColorRandom': 'Rastgele',
+      'lobby.challengeRankedLabel': 'Oyun türü:',
+      'lobby.challengeRankedYes': 'Puanlı',
+      'lobby.challengeRankedNo': 'Puansız',
+      'lobby.challengeUnrankedTag': ' (Puansız)',
       'lobby.challengeSend': 'Meydan Oku',
       'lobby.challengePendingOutgoing': '{username} adlı oyuncuya gönderildi, yanıt bekleniyor...',
       'lobby.challengeCancelBtn': 'İptal Et',
-      'lobby.challengeIncomingText': '{username} sana meydan okudu — {timeControl}, sen {color} oynayacaksın.',
+      'lobby.challengeIncomingText': '{username} sana meydan okudu — {timeControl}, sen {color} oynayacaksın.{rankedNote}',
       'lobby.challengeDeclinedByTarget': '{username} meydan okumanı reddetti.',
-      'lobby.challengeExpiredOutgoing': '{username} adlı oyuncuya gönderdiğin meydan okumanın süresi doldu.',
       'lobby.leaderboardTitle': 'Liderlik Tablosu',
       'lobby.recentGamesTitle': 'Son Oyunların',
       'lobby.noGamesYet': 'Henüz oyun yok.',
@@ -195,6 +198,16 @@
       'err.CHALLENGE_NOT_FOUND': 'Bu meydan okuma artık geçerli değil.',
       'err.CHALLENGE_NOT_YOURS': 'Bu meydan okumayı yanıtlayamazsın.',
       'err.CHALLENGE_CANCEL_NOT_YOURS': 'Bu meydan okumayı iptal edemezsin.',
+      'err.OFFER_ON_COOLDOWN': 'Bu oyuncuya {duration} sonra tekrar teklif gönderebilirsin (art arda iki kez reddedildi).',
+      'err.FULLY_BLOCKED': 'Bu oyuncuyla {duration} boyunca (ne özel davetle ne de hızlı eşleşmeyle) eşleşemezsin.',
+
+      // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
+      'duration.hoursMinutes': '{h} saat {m} dakika',
+      'duration.hoursOnly': '{h} saat',
+      'duration.minutesOnly': '{m} dakika',
+
+      // ---- Oyun ekranı: puansız (dostluk) oyun ----
+      'game.unrankedTag': 'Puansız Oyun',
 
       // ---- Varyant ağacı (lichess tarzı alt varyantlar) ----
       'analysis.confirmDeleteVariation': 'Bu varyantı (ve varsa devamındaki hamleleri) silmek istediğine emin misin?',
@@ -239,12 +252,15 @@
       'lobby.challengeColorWhite': 'White',
       'lobby.challengeColorBlack': 'Black',
       'lobby.challengeColorRandom': 'Random',
+      'lobby.challengeRankedLabel': 'Game type:',
+      'lobby.challengeRankedYes': 'Ranked',
+      'lobby.challengeRankedNo': 'Unranked',
+      'lobby.challengeUnrankedTag': ' (Unranked)',
       'lobby.challengeSend': 'Challenge',
       'lobby.challengePendingOutgoing': 'Sent to {username}, waiting for a response...',
       'lobby.challengeCancelBtn': 'Cancel',
-      'lobby.challengeIncomingText': '{username} has challenged you — {timeControl}, you will play as {color}.',
+      'lobby.challengeIncomingText': '{username} has challenged you — {timeControl}, you will play as {color}.{rankedNote}',
       'lobby.challengeDeclinedByTarget': '{username} declined your challenge.',
-      'lobby.challengeExpiredOutgoing': 'Your challenge to {username} has expired.',
       'lobby.leaderboardTitle': 'Leaderboard',
       'lobby.recentGamesTitle': 'Your Recent Games',
       'lobby.noGamesYet': 'No games yet.',
@@ -357,6 +373,16 @@
       'err.CHALLENGE_NOT_FOUND': "That challenge isn't valid anymore.",
       'err.CHALLENGE_NOT_YOURS': "You can't respond to that challenge.",
       'err.CHALLENGE_CANCEL_NOT_YOURS': "You can't cancel that challenge.",
+      'err.OFFER_ON_COOLDOWN': "You can send this player another offer in {duration} (your last two in a row were declined).",
+      'err.FULLY_BLOCKED': "You can't be matched with this player (privately or via quick match) for {duration}.",
+
+      // ---- Duration formatting (see I18N.formatDuration) ----
+      'duration.hoursMinutes': '{h}h {m}m',
+      'duration.hoursOnly': '{h}h',
+      'duration.minutesOnly': '{m}m',
+
+      // ---- Game screen: unranked (friendly) game ----
+      'game.unrankedTag': 'Unranked Game',
 
       // ---- Variation tree (lichess-style sub-variations) ----
       'analysis.confirmDeleteVariation': 'Delete this variation (and any moves after it)?',
@@ -402,6 +428,31 @@
       return t(key);
     }
     return (err && err.message) || t('err.unknown');
+  }
+
+  // Milisaniye cinsinden bir süreyi ("24 saat sonra tekrar dene" gibi
+  // mesajlarda kullanmak için) okunabilir bir metne çevirir. En az "1
+  // dakika" gösterir (0 dakika kafa karıştırıcı olurdu).
+  function formatDuration(ms) {
+    const totalMinutes = Math.max(1, Math.ceil(ms / 60000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0 && minutes > 0) return t('duration.hoursMinutes', { h: hours, m: minutes });
+    if (hours > 0) return t('duration.hoursOnly', { h: hours });
+    return t('duration.minutesOnly', { m: minutes });
+  }
+
+  // Meydan okuma/yeni oyun teklifi gönderirken alınabilecek, SÜRE İÇEREN
+  // (dinamik) hatalar için özel bir çeviri -- normal tErr() sadece sabit
+  // metinleri çevirebiliyor, bu ikisi ise sunucudan gelen retryAfterMs
+  // değerine göre "{duration}" yer tutucusunu doldurmamız gerekiyor.
+  function describeOfferError(err) {
+    const payload = err && err.payload;
+    const code = payload && payload.errorCode;
+    if ((code === 'OFFER_ON_COOLDOWN' || code === 'FULLY_BLOCKED') && payload.retryAfterMs != null) {
+      return t('err.' + code, { duration: formatDuration(payload.retryAfterMs) });
+    }
+    return tErr(err);
   }
 
   function updateLangSwitchUI() {
@@ -466,5 +517,5 @@
 
   initLang();
 
-  window.I18N = { t, tErr, setLang, getLang, applyStaticTranslations, syncFromAccount };
+  window.I18N = { t, tErr, setLang, getLang, applyStaticTranslations, syncFromAccount, formatDuration, describeOfferError };
 })();

@@ -740,13 +740,25 @@
     }
     banner.className = 'game-over-banner' + (cls ? ' ' + cls : '');
     let ratingLine = '';
-    if (typeof state.whiteRatingAfter === 'number') {
+    // Puansız (dostluk) oyunlarda puan hiç değişmediği için bu satır hiç
+    // gösterilmiyor (bkz. renderUnrankedTag: bunun yerine küçük bir
+    // "Puansız Oyun" etiketi gösteriliyor).
+    if (state.ranked !== false && typeof state.whiteRatingAfter === 'number') {
       const myRatingAfter = myColor === 'white' ? state.whiteRatingAfter : state.blackRatingAfter;
       const catLabel = state.timeControlCategory ? categoryLabel(state.timeControlCategory) : '';
       ratingLine = `<div class="rating-change">${I18N.t('game.newRatingLine', { category: catLabel, rating: myRatingAfter })}</div>`;
     }
     banner.innerHTML = `<h3>${outcomeText}</h3><div>${resultReasonText(state.resultReason)}</div>${ratingLine}`;
     banner.classList.remove('hidden');
+  }
+
+  // Puansız (dostluk) bir oyunda, oyuncunun kafası karışmasın diye (neden
+  // puanım değişmedi?) tahtanın üstünde küçük bir etiket gösteriyoruz --
+  // hem oyun sürerken hem de bittikten sonra.
+  function renderUnrankedTag() {
+    const el = $('unrankedTag');
+    if (!el) return;
+    el.classList.toggle('hidden', state.ranked !== false);
   }
 
   function renderDrawOfferBanner() {
@@ -805,6 +817,7 @@
   function renderAll() {
     renderBoard();
     renderStatus();
+    renderUnrankedTag();
     renderMoves();
     renderGameOverBanner();
     renderDrawOfferBanner();
@@ -858,7 +871,7 @@
       const { state: newState } = await api('POST', `/api/game/${gameId}/offer-rematch`);
       mergeState(newState);
       renderAll();
-    } catch (err) { alert(I18N.tErr(err)); }
+    } catch (err) { alert(I18N.describeOfferError(err)); }
   });
 
   $('acceptRematchBtn').addEventListener('click', async () => {
@@ -901,6 +914,7 @@
         status: 'finished',
         resultReason: data.reason,
         winnerColor: data.winnerColor,
+        ranked: data.ranked,
         whiteRatingAfter: data.whiteRatingAfter,
         blackRatingAfter: data.blackRatingAfter,
       });

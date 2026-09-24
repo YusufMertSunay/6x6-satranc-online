@@ -116,7 +116,20 @@ const ERROR_CODES = {
   'Bu meydan okuma artık geçerli değil.': 'CHALLENGE_NOT_FOUND',
   'Bu meydan okumayı yanıtlama yetkin yok.': 'CHALLENGE_NOT_YOURS',
   'Bu meydan okumayı iptal etme yetkin yok.': 'CHALLENGE_CANCEL_NOT_YOURS',
+  'Bu oyuncuya şu anda meydan okuyamazsın.': 'OFFER_ON_COOLDOWN',
+  'Bu oyuncuyla şu anda hiçbir şekilde eşleşemezsin.': 'FULLY_BLOCKED',
 };
+
+// Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik
+// bir veri de taşır -- ör. "ne kadar süre sonra tekrar deneyebilirsin"
+// (retryAfterMs). errJson'un normal 3. parametresi (extra) bunun için;
+// bu küçük yardımcı, err nesnesinde .retryAfterMs varsa onu otomatik
+// olarak extra'ya ekler (PROMOTION_REQUIRED'daki err.options deseniyle
+// aynı mantık).
+function errFromException(res, err) {
+  const extra = (err && err.retryAfterMs != null) ? { retryAfterMs: err.retryAfterMs } : undefined;
+  return errJson(res, 400, err.message, extra);
+}
 
 function errJson(res, status, message, extra) {
   const obj = Object.assign({ error: message, errorCode: ERROR_CODES[message] || null }, extra || {});
@@ -716,12 +729,12 @@ async function handleApi(req, res, pathname, url) {
 
   // ---- Doğrudan meydan okuma (belirli, o an çevrimiçi olan bir oyuncuya) ----
   if (pathname === '/api/challenge/send' && req.method === 'POST') {
-    const { username, timeControlKey, color } = await readBody(req);
+    const { username, timeControlKey, color, ranked } = await readBody(req);
     try {
-      const result = gameManager.createChallenge(user.id, username, timeControlKey, color);
+      const result = gameManager.createChallenge(user.id, username, timeControlKey, color, ranked !== false);
       return sendJson(res, 200, Object.assign({ ok: true }, result));
     } catch (err) {
-      return errJson(res, 400, err.message);
+      return errFromException(res, err);
     }
   }
 
@@ -824,7 +837,7 @@ async function handleApi(req, res, pathname, url) {
 
     if (sub === '/offer-rematch' && req.method === 'POST') {
       try { return sendJson(res, 200, { state: gameManager.offerRematch(gameId, user.id) }); }
-      catch (err) { return errJson(res, 400, err.message); }
+      catch (err) { return errFromException(res, err); }
     }
 
     if (sub === '/respond-rematch' && req.method === 'POST') {

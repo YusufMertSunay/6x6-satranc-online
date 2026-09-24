@@ -244,8 +244,8 @@
   // sadece o an SİTEDE (çevrimiçi) olan oyuncular meydan okunabilir (bu
   // kontrol sunucu tarafında gameManager.createChallenge içinde yapılıyor —
   // burada sadece sunucunun döndürdüğü hatayı gösteriyoruz).
-  let outgoingChallenge = null; // { challengeId, targetUsername }
-  let incomingChallenge = null; // { challengeId, fromUsername, timeControlKey, colorForTarget }
+  let outgoingChallenge = null; // { challengeId, targetUsername, ranked }
+  let incomingChallenge = null; // { challengeId, fromUsername, timeControlKey, colorForTarget, ranked }
 
   function renderChallengeTimeControls() {
     const sel = $('challengeTc');
@@ -259,7 +259,9 @@
     if (outgoingChallenge) {
       $('challengeForm').classList.add('hidden');
       $('challengeOutgoing').classList.remove('hidden');
-      $('challengeOutgoingText').textContent = I18N.t('lobby.challengePendingOutgoing', { username: outgoingChallenge.targetUsername });
+      let text = I18N.t('lobby.challengePendingOutgoing', { username: outgoingChallenge.targetUsername });
+      if (outgoingChallenge.ranked === false) text += I18N.t('lobby.challengeUnrankedTag');
+      $('challengeOutgoingText').textContent = text;
     } else {
       $('challengeForm').classList.remove('hidden');
       $('challengeOutgoing').classList.add('hidden');
@@ -282,6 +284,7 @@
       username: incomingChallenge.fromUsername,
       timeControl: tcLabel,
       color: colorLabel(incomingChallenge.colorForTarget),
+      rankedNote: incomingChallenge.ranked === false ? I18N.t('lobby.challengeUnrankedTag') : '',
     });
   }
 
@@ -300,15 +303,17 @@
     if (!username) return;
     const colorInput = document.querySelector('input[name="challengeColor"]:checked');
     const color = colorInput ? colorInput.value : 'random';
+    const rankedInput = document.querySelector('input[name="challengeRanked"]:checked');
+    const ranked = !rankedInput || rankedInput.value !== 'unranked';
     const timeControlKey = $('challengeTc').value;
     $('challengeError').textContent = '';
     $('challengeSendBtn').disabled = true;
     try {
-      const res = await api('POST', '/api/challenge/send', { username, timeControlKey, color });
-      outgoingChallenge = { challengeId: res.challengeId, targetUsername: username };
+      const res = await api('POST', '/api/challenge/send', { username, timeControlKey, color, ranked });
+      outgoingChallenge = { challengeId: res.challengeId, targetUsername: username, ranked };
       renderOutgoingChallenge();
     } catch (err) {
-      $('challengeError').textContent = I18N.tErr(err);
+      $('challengeError').textContent = I18N.describeOfferError(err);
     } finally {
       $('challengeSendBtn').disabled = false;
     }
@@ -356,6 +361,7 @@
         fromUsername: data.fromUsername,
         timeControlKey: data.timeControlKey,
         colorForTarget: data.colorForTarget,
+        ranked: data.ranked,
       };
       renderIncomingChallenge();
     });
@@ -370,19 +376,6 @@
     });
     sse.addEventListener('challenge_cancelled', (e) => {
       const data = JSON.parse(e.data);
-      if (incomingChallenge && incomingChallenge.challengeId === data.challengeId) {
-        incomingChallenge = null;
-        renderIncomingChallenge();
-      }
-    });
-    sse.addEventListener('challenge_expired', (e) => {
-      const data = JSON.parse(e.data);
-      if (outgoingChallenge && outgoingChallenge.challengeId === data.challengeId) {
-        const username = outgoingChallenge.targetUsername;
-        outgoingChallenge = null;
-        renderOutgoingChallenge();
-        alert(I18N.t('lobby.challengeExpiredOutgoing', { username }));
-      }
       if (incomingChallenge && incomingChallenge.challengeId === data.challengeId) {
         incomingChallenge = null;
         renderIncomingChallenge();
