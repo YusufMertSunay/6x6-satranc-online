@@ -130,6 +130,15 @@
       'game.opponentThinking': 'Rakip düşünüyor...',
       'game.newRatingLine': 'Yeni {category} puanın: {rating}',
 
+      // ---- İlk hamle süresi / oyun iptali (kullanıcı isteği) ----
+      'game.cancelGame': 'Oyunu İptal Et',
+      'game.confirmCancel': 'Oyunu iptal etmek istediğine emin misin?',
+      'game.cancelledNotice.cancelled_by_player': 'Oyun iptal edildi.',
+      'game.cancelledNotice.white_no_first_move': 'Oyun iptal edildi: beyaz, süresi içinde ilk hamlesini yapmadı.',
+      'game.cancelledNotice.black_no_first_move': 'Oyun iptal edildi: siyah, süresi içinde ilk hamlesini yapmadı.',
+      'game.firstMoveCountdownYou': 'İlk hamleni {sec} saniye içinde yapmazsan oyun iptal olacak!',
+      'game.firstMoveCountdownOpponent': 'Rakibin ilk hamlesini {sec} saniye içinde yapmazsa oyun iptal olacak.',
+
       // ---- Analiz ekranı ----
       'analysis.movesHint': 'Oyunun hamleleri (tıklayınca o ana gider):',
       'analysis.pvHint': 'Motorun önerdiği varyant (PV):',
@@ -199,6 +208,9 @@
       'err.CHALLENGE_NOT_YOURS': 'Bu meydan okumayı yanıtlayamazsın.',
       'err.CHALLENGE_CANCEL_NOT_YOURS': 'Bu meydan okumayı iptal edemezsin.',
       'err.OFFER_ON_COOLDOWN': 'Bu oyuncuya {duration} sonra tekrar teklif gönderebilirsin (art arda iki kez reddedildi).',
+      'err.CANNOT_CANCEL_GAME': 'Bu oyun artık iptal edilemez (her iki taraf da ilk hamlesini yaptı).',
+      'err.CANNOT_RESIGN_BEFORE_BLACK_MOVED': 'Siyah ilk hamlesini yapana kadar teslim olunamaz.',
+      'err.CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED': 'Siyah ilk hamlesini yapana kadar beraberlik teklif edilemez.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
       'duration.hoursMinutes': '{h} saat {m} dakika',
@@ -307,6 +319,15 @@
       'game.opponentThinking': 'Opponent is thinking...',
       'game.newRatingLine': 'Your new {category} rating: {rating}',
 
+      // ---- First-move deadline / game cancellation ----
+      'game.cancelGame': 'Cancel Game',
+      'game.confirmCancel': 'Are you sure you want to cancel this game?',
+      'game.cancelledNotice.cancelled_by_player': 'The game was cancelled.',
+      'game.cancelledNotice.white_no_first_move': "The game was cancelled: White didn't make their first move in time.",
+      'game.cancelledNotice.black_no_first_move': "The game was cancelled: Black didn't make their first move in time.",
+      'game.firstMoveCountdownYou': "The game will be cancelled if you don't make your first move within {sec}s!",
+      'game.firstMoveCountdownOpponent': "The game will be cancelled if your opponent doesn't make their first move within {sec}s.",
+
       'analysis.movesHint': 'Game moves (click to jump to that point):',
       'analysis.pvHint': "Engine's suggested line (PV):",
       'analysis.navStart': '|< Start',
@@ -373,6 +394,9 @@
       'err.CHALLENGE_NOT_YOURS': "You can't respond to that challenge.",
       'err.CHALLENGE_CANCEL_NOT_YOURS': "You can't cancel that challenge.",
       'err.OFFER_ON_COOLDOWN': "You can send this player another offer in {duration} (your last two in a row were declined).",
+      'err.CANNOT_CANCEL_GAME': "This game can no longer be cancelled (both sides have made a move).",
+      'err.CANNOT_RESIGN_BEFORE_BLACK_MOVED': "You can't resign before Black has made their first move.",
+      'err.CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED': "You can't offer a draw before Black has made their first move.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----
       'duration.hoursMinutes': '{h}h {m}m',
@@ -454,6 +478,16 @@
     return tErr(err);
   }
 
+  // Sunucudan 'game_cancelled' SSE olayıyla gelen "reason" (ör.
+  // 'white_no_first_move') değerine göre kullanıcıya gösterilecek metni
+  // döndürür -- tanınmayan/beklenmedik bir sebep gelirse (olmamalı ama
+  // yine de) genel "Oyun iptal edildi." mesajına düşer.
+  function describeCancelReason(reason) {
+    const key = 'game.cancelledNotice.' + reason;
+    const val = t(key);
+    return val !== key ? val : t('game.cancelledNotice.cancelled_by_player');
+  }
+
   function updateLangSwitchUI() {
     document.querySelectorAll('.lang-switch button[data-lang]').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-lang') === currentLang);
@@ -516,5 +550,5 @@
 
   initLang();
 
-  window.I18N = { t, tErr, setLang, getLang, applyStaticTranslations, syncFromAccount, formatDuration, describeOfferError };
+  window.I18N = { t, tErr, setLang, getLang, applyStaticTranslations, syncFromAccount, formatDuration, describeOfferError, describeCancelReason };
 })();

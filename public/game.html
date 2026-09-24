@@ -61,6 +61,7 @@
   <div class="side-panel">
     <span class="hidden unranked-tag" id="unrankedTag" data-i18n="game.unrankedTag">Puansız Oyun</span>
     <div class="status-box" id="statusBox" data-i18n="status.loading">Yükleniyor...</div>
+    <span class="hidden first-move-countdown" id="firstMoveCountdown"></span>
 
     <div class="hidden" id="gameOverBanner" class="game-over-banner"></div>
 
@@ -90,7 +91,11 @@
 
     <div class="moves-box" id="movesBox"></div>
 
-    <div class="action-row">
+    <div class="hidden action-row" id="cancelActionRow">
+      <button class="danger" id="cancelGameBtn" type="button" data-i18n="game.cancelGame">Oyunu İptal Et</button>
+    </div>
+
+    <div class="action-row" id="normalActionRow">
       <button class="secondary" id="offerDrawBtn" data-i18n="game.offerDraw">Beraberlik Teklif Et</button>
       <button class="danger" id="resignBtn" data-i18n="game.resign">Teslim Ol</button>
     </div>

@@ -46,6 +46,12 @@
   let legalMoves = []; // sıradaki oyuncu için tüm yasal hamleler (UCI)
   let clockTimer = null;
   let sse = null;
+  // Kullanıcı KENDİSİ "Oyunu İptal Et" butonuna bastığında, sunucudan gelen
+  // 'game_cancelled' SSE olayı (bu, hem beyaza hem siyaha -- yani KENDİSİNE
+  // de -- gönderiliyor) zaten lobiye yönlendirme yapıldıktan hemen sonra/
+  // sırasında gelebilir; bu bayrak, kendi tıklamasından kaynaklanan bu
+  // olayda gereksiz/çift bir uyarı (alert) göstermemizi önlüyor.
+  let selfCancelled = false;
 
   // ---------------- Sürükle-bırak (drag & drop) durumu ----------------
   // Taşları hem tıklayarak (yukarıdaki selected/legalMoves akışı) hem de
@@ -674,6 +680,28 @@
     const oppActive = state.status === 'active' && !myTurn();
     myEl.classList.toggle('active', myActive);
     oppEl.classList.toggle('active', oppActive);
+
+    updateFirstMoveCountdown();
+  }
+
+  // İLK HAMLE SÜRESİ (kullanıcı isteği): iki taraftan biri henüz kendi İLK
+  // hamlesini yapmadıysa, o tarafın (kendisi ya da rakip fark etmeksizin)
+  // ne kadar süresi kaldığını canlı olarak gösteriyoruz -- süre dolarsa
+  // sunucu oyunu otomatik iptal edip 'game_cancelled' SSE olayı gönderecek.
+  function updateFirstMoveCountdown() {
+    const el = $('firstMoveCountdown');
+    if (!el) return;
+    if (!state || state.status !== 'active' || !state.firstMoveDeadlineAt) {
+      el.classList.add('hidden');
+      return;
+    }
+    const msLeft = state.firstMoveDeadlineAt - Date.now();
+    if (msLeft <= 0) { el.classList.add('hidden'); return; }
+    const secLeft = Math.ceil(msLeft / 1000);
+    const waitingForColor = !state.whiteMoved ? 'white' : 'black';
+    const key = waitingForColor === myColor ? 'game.firstMoveCountdownYou' : 'game.firstMoveCountdownOpponent';
+    el.textContent = I18N.t(key, { sec: secLeft });
+    el.classList.remove('hidden');
   }
 
   // ---------------- Genel görünüm güncelleme ----------------
@@ -810,8 +838,17 @@
 
   function renderActionButtons() {
     const active = state.status === 'active';
-    $('offerDrawBtn').disabled = !active;
-    $('resignBtn').disabled = !active;
+    // Kullanıcı isteği: siyah kendi İLK hamlesini yapana kadar hiçbir taraf
+    // beraberlik teklif edemez ya da teslim olamaz -- bu dönemde tek çıkış
+    // yolu "Oyunu İptal Et" butonu (bkz. cancelActionRow).
+    const blackMoved = !!state.blackMoved;
+    const canCancel = active && !blackMoved;
+    $('offerDrawBtn').disabled = !active || !blackMoved;
+    $('resignBtn').disabled = !active || !blackMoved;
+    const cancelRow = $('cancelActionRow');
+    const normalRow = $('normalActionRow');
+    if (cancelRow) cancelRow.classList.toggle('hidden', !canCancel);
+    if (normalRow) normalRow.classList.toggle('hidden', canCancel);
   }
 
   function renderAll() {
@@ -864,6 +901,18 @@
       mergeState(newState);
       renderAll();
     } catch (err) { alert(I18N.tErr(err)); }
+  });
+
+  $('cancelGameBtn').addEventListener('click', async () => {
+    if (!confirm(I18N.t('game.confirmCancel'))) return;
+    selfCancelled = true;
+    try {
+      await api('POST', `/api/game/${gameId}/cancel`);
+      window.location.href = '/';
+    } catch (err) {
+      selfCancelled = false;
+      alert(I18N.tErr(err));
+    }
   });
 
   $('offerRematchBtn').addEventListener('click', async () => {
@@ -922,6 +971,14 @@
       selected = null;
       renderAll();
     });
+    sse.addEventListener('game_cancelled', (e) => {
+      const data = JSON.parse(e.data);
+      if (data.gameId !== gameId) return;
+      if (!selfCancelled) {
+        alert(I18N.describeCancelReason(data.reason));
+      }
+      window.location.href = '/';
+    });
     sse.addEventListener('draw_offered', async () => {
       // Güncel durumu almak için tam bir tazeleme yapalım (drawOfferBy alanı için).
       await reloadState();
@@ -975,9 +1032,26 @@
         if (state.turnStartedAt === undefined) state.turnStartedAt = Date.now();
         if (state.drawOfferBy === undefined) state.drawOfferBy = null;
         if (state.rematchOfferBy === undefined) state.rematchOfferBy = null;
+        // whiteMoved/blackMoved bu özellikten ÖNCE kaydedilmiş eski bir
+        // oyunda hiç yoksa, gerçek hamle sayısından güvenle çıkarabiliriz
+        // (bitmiş bir oyunda bu alanlar zaten hiçbir arayüz kısıtlamasını
+        // etkilemez, sadece tanımsız/undefined olmasınlar diye).
+        if (state.whiteMoved === undefined) state.whiteMoved = (state.movesUci || []).length >= 1;
+        if (state.blackMoved === undefined) state.blackMoved = (state.movesUci || []).length >= 2;
+        if (state.firstMoveDeadlineAt === undefined) state.firstMoveDeadlineAt = null;
       }
     } catch (err) {
       setStatusMessage(I18N.t('err.gameLoadFailedPrefix') + I18N.tErr(err), true);
+      return;
+    }
+
+    // Sayfa, oyun İPTAL EDİLDİKTEN hemen sonra (ör. 'game_cancelled' SSE
+    // olayı henüz ulaşmamışken bir yenileme/yeniden bağlanma ile) açıldıysa
+    // -- kısa bir süre (bkz. _cancelGame) bellekte "cancelled" olarak
+    // kalıyor -- doğrudan lobiye dönelim.
+    if (state.status === 'cancelled') {
+      alert(I18N.describeCancelReason(state.resultReason));
+      window.location.href = '/';
       return;
     }
 

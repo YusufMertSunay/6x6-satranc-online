@@ -550,6 +550,15 @@ input:focus { outline: 2px solid var(--accent); }
   text-transform: uppercase;
 }
 
+/* İlk hamle süresi geri sayımı -- bkz. game.js: updateFirstMoveCountdown. */
+.first-move-countdown {
+  display: block;
+  text-align: center;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .moves-box {
   background: var(--bg-panel);
   border-radius: 8px;

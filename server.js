@@ -117,6 +117,10 @@ const ERROR_CODES = {
   'Bu meydan okumayı yanıtlama yetkin yok.': 'CHALLENGE_NOT_YOURS',
   'Bu meydan okumayı iptal etme yetkin yok.': 'CHALLENGE_CANCEL_NOT_YOURS',
   'Bu oyuncuya şu anda meydan okuyamazsın.': 'OFFER_ON_COOLDOWN',
+  // ---- İlk hamle süresi / oyun iptali ----
+  'Bu oyun artık iptal edilemez (her iki taraf da ilk hamlesini yaptı).': 'CANNOT_CANCEL_GAME',
+  'Siyah ilk hamlesini yapana kadar teslim olunamaz.': 'CANNOT_RESIGN_BEFORE_BLACK_MOVED',
+  'Siyah ilk hamlesini yapana kadar beraberlik teklif edilemez.': 'CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED',
 };
 
 // Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik
@@ -820,6 +824,11 @@ async function handleApi(req, res, pathname, url) {
 
     if (sub === '/resign' && req.method === 'POST') {
       try { return sendJson(res, 200, { state: gameManager.resign(gameId, user.id) }); }
+      catch (err) { return errJson(res, 400, err.message); }
+    }
+
+    if (sub === '/cancel' && req.method === 'POST') {
+      try { return sendJson(res, 200, gameManager.cancelGame(gameId, user.id)); }
       catch (err) { return errJson(res, 400, err.message); }
     }
 
