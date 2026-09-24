@@ -121,6 +121,14 @@ const ERROR_CODES = {
   'Bu oyun artık iptal edilemez (her iki taraf da ilk hamlesini yaptı).': 'CANNOT_CANCEL_GAME',
   'Siyah ilk hamlesini yapana kadar teslim olunamaz.': 'CANNOT_RESIGN_BEFORE_BLACK_MOVED',
   'Siyah ilk hamlesini yapana kadar beraberlik teklif edilemez.': 'CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED',
+  // ---- Hızlı eşleştirme iptal suistimali ----
+  'Art arda çok fazla hızlı eşleştirme oyunu iptal ettiğin için hızlı eşleştirmeyi geçici olarak kullanamıyorsun.': 'QUICK_MATCH_CANCEL_BLOCKED',
+  // ---- Beraberlik teklifi sınırları ----
+  'Bu oyunda en fazla 5 kez beraberlik teklif edebilirsin.': 'DRAW_OFFER_LIMIT_REACHED',
+  'Her 3 hamlelik periyotta en fazla 1 kez beraberlik teklif edebilirsin.': 'DRAW_OFFER_PERIOD_LIMIT',
+  // ---- Kullanıcı engelleme ----
+  'Kendini engelleyemezsin.': 'CANNOT_BLOCK_SELF',
+  'Bu kullanıcı seni engellemiş, ona oyun teklifi gönderemezsin.': 'BLOCKED_BY_TARGET',
 };
 
 // Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik
@@ -721,7 +729,11 @@ async function handleApi(req, res, pathname, url) {
       gameManager.joinQueue(user.id, timeControlKey);
       return sendJson(res, 200, { ok: true });
     } catch (err) {
-      return errJson(res, 400, err.message);
+      // errFromException kullanıyoruz -- hızlı eşleştirme iptal suistimali
+      // cezası (QUICK_MATCH_CANCEL_BLOCKED) retryAfterMs taşıyor, istemci
+      // bunu "kaç saat/dakika sonra tekrar dene" şeklinde göstermek için
+      // kullanıyor (bkz. public/js/i18n.js: describeOfferError).
+      return errFromException(res, err);
     }
   }
 
@@ -755,6 +767,31 @@ async function handleApi(req, res, pathname, url) {
     const { challengeId } = await readBody(req);
     try {
       const result = gameManager.cancelChallenge(challengeId, user.id);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  // ---- Kullanıcı engelleme (kullanıcı isteği) ----
+  if (pathname === '/api/block/list' && req.method === 'GET') {
+    return sendJson(res, 200, { usernames: gameManager.listBlockedUsers(user.id) });
+  }
+
+  if (pathname === '/api/block/add' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = gameManager.blockUser(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/block/remove' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = gameManager.unblockUser(user.id, username);
       return sendJson(res, 200, result);
     } catch (err) {
       return errJson(res, 400, err.message);

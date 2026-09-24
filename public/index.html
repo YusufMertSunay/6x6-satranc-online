@@ -102,6 +102,17 @@
     </div>
 
     <div class="card">
+      <h3 data-i18n="lobby.blockTitle">Kullanıcı Engelle</h3>
+      <form class="auth-form" id="blockForm">
+        <input type="text" id="blockUsername" placeholder="Kullanıcı adı" data-i18n-placeholder="lobby.blockUsernamePlaceholder" autocomplete="off" required>
+        <div class="error-text" id="blockError"></div>
+        <button class="primary" type="submit" id="blockSendBtn" data-i18n="lobby.blockButton">Engelle</button>
+      </form>
+      <h3 style="margin-top:18px" data-i18n="lobby.blockedListTitle">Engellediklerin</h3>
+      <ul class="games-list" id="blockedList"><li class="hint-text" data-i18n="lobby.blockedListEmpty">Henüz kimseyi engellemedin.</li></ul>
+    </div>
+
+    <div class="card">
       <h3 data-i18n="lobby.leaderboardTitle">Liderlik Tablosu</h3>
       <div class="leaderboard-tabs" id="leaderboardTabs">
         <button class="active" data-category="bullet" data-i18n="cat.bullet">Bullet</button>

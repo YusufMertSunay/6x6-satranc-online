@@ -140,7 +140,7 @@
             // Değişiklik başarısız oldu (ör. bu arada bir oyun başlamış
             // olabilir) -- görünümü GERÇEK (eski) seçime geri al.
             document.querySelectorAll('.tc-option').forEach(el => el.classList.toggle('selected', el.dataset.key === previousKey));
-            alert(I18N.tErr(err));
+            alert(I18N.describeOfferError(err));
           }
           return;
         }
@@ -227,7 +227,10 @@
         $('queueDots').textContent = '.'.repeat(dots);
       }, 500);
     } catch (err) {
-      alert(I18N.tErr(err));
+      // describeOfferError kullanıyoruz -- hızlı eşleştirme iptal suistimali
+      // cezası (QUICK_MATCH_CANCEL_BLOCKED) "{duration} sonra tekrar dene"
+      // şeklinde, süre doldurulmuş olarak gösterilsin diye (kullanıcı isteği).
+      alert(I18N.describeOfferError(err));
     }
   });
 
@@ -347,6 +350,60 @@
     renderIncomingChallenge();
   });
 
+  // ---------------- Kullanıcı engelleme (kullanıcı isteği) ----------------
+  // Engellenen kullanıcı artık bize hiçbir şekilde oyun teklif edemez ve
+  // hızlı eşleştirmede bizimle eşleşemez -- ama biz istersek ona yine de
+  // meydan okuyabiliriz (bkz. gameManager.js: blockUser/createChallenge).
+
+  async function loadBlockedList() {
+    const { usernames } = await api('GET', '/api/block/list');
+    const list = $('blockedList');
+    list.innerHTML = '';
+    if (!usernames.length) {
+      list.innerHTML = `<li class="hint-text">${I18N.t('lobby.blockedListEmpty')}</li>`;
+      return;
+    }
+    usernames.forEach(username => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = username;
+      const btn = document.createElement('button');
+      btn.className = 'secondary';
+      btn.textContent = I18N.t('lobby.unblockButton');
+      btn.addEventListener('click', async () => {
+        if (!confirm(I18N.t('lobby.unblockConfirm', { username }))) return;
+        try {
+          await api('POST', '/api/block/remove', { username });
+          await loadBlockedList();
+        } catch (err) {
+          alert(I18N.tErr(err));
+        }
+      });
+      li.appendChild(span);
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  $('blockForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = $('blockUsername').value.trim();
+    if (!username) return;
+    if (!confirm(I18N.t('lobby.blockConfirm', { username }))) return;
+    $('blockError').textContent = '';
+    $('blockSendBtn').disabled = true;
+    try {
+      const res = await api('POST', '/api/block/add', { username });
+      $('blockForm').reset();
+      await loadBlockedList();
+      alert(I18N.t('lobby.blockSuccess', { username: res.username }));
+    } catch (err) {
+      $('blockError').textContent = I18N.tErr(err);
+    } finally {
+      $('blockSendBtn').disabled = false;
+    }
+  });
+
   function connectSse() {
     if (sse) sse.close();
     sse = new EventSource('/events');
@@ -393,7 +450,7 @@
     // kontrolünün kategorisine göre dolduruluyor.
     resetChallengeState();
     connectSse();
-    await Promise.all([loadTimeControls(), loadLeaderboard(), loadMyGames()]);
+    await Promise.all([loadTimeControls(), loadLeaderboard(), loadMyGames(), loadBlockedList()]);
     const activeGameId = await checkActiveGame();
     if (activeGameId) {
       // Devam eden bir oyun varsa doğrudan oraya yönlendirelim.
@@ -413,6 +470,7 @@
       loadTimeControls();
       loadLeaderboard();
       loadMyGames();
+      loadBlockedList();
       renderOutgoingChallenge();
       renderIncomingChallenge();
     }

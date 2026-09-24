@@ -81,6 +81,22 @@
       'lobby.thRating': 'Puan',
       'lobby.thRecord': 'G/M/B',
 
+      // ---- Kullanıcı engelleme (kullanıcı isteği) ----
+      'lobby.blockTitle': 'Kullanıcı Engelle',
+      'lobby.blockUsernamePlaceholder': 'Kullanıcı adı',
+      'lobby.blockButton': 'Engelle',
+      'lobby.blockedListTitle': 'Engellediklerin',
+      'lobby.blockedListEmpty': 'Henüz kimseyi engellemedin.',
+      'lobby.unblockButton': 'Engeli Kaldır',
+      'lobby.blockConfirm': '{username} adlı kullanıcıyı engellemek istediğine emin misin? Engellediğin kullanıcı sana artık hiçbir şekilde oyun teklif edemez ve hızlı eşleştirmede seninle eşleşemez. Sen istersen ona yine de meydan okuyabilirsin.',
+      'lobby.unblockConfirm': '{username} adlı kullanıcının engelini kaldırmak istediğine emin misin?',
+      'lobby.blockSuccess': '{username} engellendi.',
+      'lobby.unblockSuccess': '{username} kullanıcısının engeli kaldırıldı.',
+
+      // ---- Hızlı eşleştirme iptal suistimali (kullanıcı isteği) ----
+      'lobby.quickMatchCancelWarning': 'Dikkat: son 90 dakika içinde hızlı eşleştirmeden 2 oyunu iptal ettin. Bir kez daha iptal edersen 24 saat boyunca hızlı eşleştirmeyi kullanamayacaksın.',
+      'lobby.quickMatchCancelBlocked': 'Son 90 dakika içinde hızlı eşleştirmeden 3 oyunu iptal ettiğin için, 24 saat boyunca hızlı eşleştirmeyi kullanamayacaksın. (Doğrudan meydan okuma bundan etkilenmez.)',
+
       // ---- Süre kontrolü kategorileri ----
       'cat.bullet': 'Bullet',
       'cat.blitz': 'Blitz',
@@ -211,6 +227,11 @@
       'err.CANNOT_CANCEL_GAME': 'Bu oyun artık iptal edilemez (her iki taraf da ilk hamlesini yaptı).',
       'err.CANNOT_RESIGN_BEFORE_BLACK_MOVED': 'Siyah ilk hamlesini yapana kadar teslim olunamaz.',
       'err.CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED': 'Siyah ilk hamlesini yapana kadar beraberlik teklif edilemez.',
+      'err.QUICK_MATCH_CANCEL_BLOCKED': 'Art arda çok fazla hızlı eşleştirme oyunu iptal ettiğin için {duration} sonra tekrar hızlı eşleştirme kullanabilirsin (doğrudan meydan okuma etkilenmez).',
+      'err.DRAW_OFFER_LIMIT_REACHED': 'Bu oyunda en fazla 5 kez beraberlik teklif edebilirsin.',
+      'err.DRAW_OFFER_PERIOD_LIMIT': 'Her 3 hamlelik periyotta en fazla 1 kez beraberlik teklif edebilirsin. Birkaç hamle sonra tekrar dene.',
+      'err.CANNOT_BLOCK_SELF': 'Kendini engelleyemezsin.',
+      'err.BLOCKED_BY_TARGET': 'Bu kullanıcı seni engellemiş, ona oyun teklifi gönderemezsin.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
       'duration.hoursMinutes': '{h} saat {m} dakika',
@@ -279,6 +300,22 @@
       'lobby.thUser': 'User',
       'lobby.thRating': 'Rating',
       'lobby.thRecord': 'W/L/D',
+
+      // ---- Blocking users ----
+      'lobby.blockTitle': 'Block a User',
+      'lobby.blockUsernamePlaceholder': 'Username',
+      'lobby.blockButton': 'Block',
+      'lobby.blockedListTitle': 'Users You Blocked',
+      'lobby.blockedListEmpty': "You haven't blocked anyone yet.",
+      'lobby.unblockButton': 'Unblock',
+      'lobby.blockConfirm': 'Are you sure you want to block {username}? A blocked user can no longer challenge you in any way and cannot be matched with you in quick matchmaking. You can still challenge them yourself if you want.',
+      'lobby.unblockConfirm': 'Are you sure you want to unblock {username}?',
+      'lobby.blockSuccess': '{username} has been blocked.',
+      'lobby.unblockSuccess': '{username} has been unblocked.',
+
+      // ---- Quick-match cancellation abuse ----
+      'lobby.quickMatchCancelWarning': "Warning: you've cancelled 2 quick-matched games in the last 90 minutes. If you cancel one more, you won't be able to use quick matchmaking for 24 hours.",
+      'lobby.quickMatchCancelBlocked': "You've cancelled 3 quick-matched games in the last 90 minutes, so quick matchmaking is disabled for you for 24 hours. (Direct challenges are not affected.)",
 
       'cat.bullet': 'Bullet',
       'cat.blitz': 'Blitz',
@@ -397,6 +434,11 @@
       'err.CANNOT_CANCEL_GAME': "This game can no longer be cancelled (both sides have made a move).",
       'err.CANNOT_RESIGN_BEFORE_BLACK_MOVED': "You can't resign before Black has made their first move.",
       'err.CANNOT_OFFER_DRAW_BEFORE_BLACK_MOVED': "You can't offer a draw before Black has made their first move.",
+      'err.QUICK_MATCH_CANCEL_BLOCKED': "You've cancelled too many quick-matched games in a row; you can use quick matchmaking again in {duration} (direct challenges are not affected).",
+      'err.DRAW_OFFER_LIMIT_REACHED': "You can offer a draw at most 5 times in this game.",
+      'err.DRAW_OFFER_PERIOD_LIMIT': "You can only offer a draw once per 3-move period. Try again in a few moves.",
+      'err.CANNOT_BLOCK_SELF': "You can't block yourself.",
+      'err.BLOCKED_BY_TARGET': "This user has blocked you, so you can't send them a game offer.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----
       'duration.hoursMinutes': '{h}h {m}m',
@@ -469,10 +511,14 @@
   // sadece sabit metinleri çevirebiliyor, bu ise sunucudan gelen
   // retryAfterMs değerine göre "{duration}" yer tutucusunu doldurmamız
   // gerekiyor.
+  // Genelleştirildi (kullanıcı isteği: hızlı eşleştirme iptal suistimali
+  // cezası da QUICK_MATCH_CANCEL_BLOCKED koduyla retryAfterMs taşıyor) --
+  // artık SADECE OFFER_ON_COOLDOWN değil, retryAfterMs taşıyan HERHANGİ bir
+  // hata kodu için "{duration}" yer tutucusunu dolduruyor.
   function describeOfferError(err) {
     const payload = err && err.payload;
     const code = payload && payload.errorCode;
-    if (code === 'OFFER_ON_COOLDOWN' && payload.retryAfterMs != null) {
+    if (code && payload.retryAfterMs != null) {
       return t('err.' + code, { duration: formatDuration(payload.retryAfterMs) });
     }
     return tErr(err);

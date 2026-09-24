@@ -907,7 +907,18 @@
     if (!confirm(I18N.t('game.confirmCancel'))) return;
     selfCancelled = true;
     try {
-      await api('POST', `/api/game/${gameId}/cancel`);
+      const res = await api('POST', `/api/game/${gameId}/cancel`);
+      // Hızlı eşleştirme iptal suistimali (kullanıcı isteği): uyarı/engel
+      // bildirimini SSE'nin (fire-and-forget, tam bu anda sayfa değiştiği
+      // için kaybolma riski olan) yerine BU API YANITININ İÇİNDEN,
+      // sayfadan ayrılmadan ÖNCE güvenilir şekilde gösteriyoruz (bkz.
+      // gameManager.js: cancelGame/_recordQuickMatchCancel).
+      const notice = res && res.quickMatchCancelNotice;
+      if (notice && notice.type === 'blocked') {
+        alert(I18N.t('lobby.quickMatchCancelBlocked'));
+      } else if (notice && notice.type === 'warning') {
+        alert(I18N.t('lobby.quickMatchCancelWarning'));
+      }
       window.location.href = '/';
     } catch (err) {
       selfCancelled = false;
