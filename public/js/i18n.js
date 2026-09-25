@@ -110,6 +110,10 @@
       // yeniden çeviri gerekmiyor.
       'tc.minutesShort': '{m} dk',
       'tc.incrementShort': ' | +{s} sn',
+      // Kullanıcı isteğiyle: belirli bir süre kontrolünün (şu an 5+8) yanına
+      // "geliştiricinin önerisi" notu eklenebilsin diye (bkz. app.js:
+      // formatTimeControlLabel / gameManager.js: DEVELOPER_PICK_TC_KEY).
+      'tc.developerPick': ' (Geliştiricinin Tavsiyesi)',
 
       // ---- Oyun sonuçları ----
       'result.won': 'Kazandın',
@@ -323,6 +327,7 @@
       'cat.classical': 'Classical',
       'tc.minutesShort': '{m} min',
       'tc.incrementShort': ' | +{s} sec',
+      'tc.developerPick': " (Developer's Pick)",
 
       'result.won': 'You won',
       'result.wonBanner': 'You won!',

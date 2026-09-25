@@ -93,11 +93,19 @@
   // "category" alanlarından etiketi kendimiz, o anki arayüz dilinde
   // üretiyoruz (bkz. lib/gameManager.js: TIME_CONTROLS -- key formatı her
   // zaman "dakika+artışSaniyesi").
+  // Kullanıcı isteği: "5+8" süre kontrolünün yanında "(Geliştiricinin
+  // Tavsiyesi)" notu görünsün -- bu not hem hızlı eşleştirme listesinde
+  // (#tcList) hem de özel eşleştirme (doğrudan meydan okuma) açılır
+  // menüsünde çıkıyor, çünkü ikisi de aynı formatTimeControlLabel
+  // fonksiyonunu kullanıyor (bkz. renderChallengeTimeControls).
+  const DEVELOPER_PICK_TC_KEY = '5+8';
+
   function formatTimeControlLabel(tc) {
     const [minutes, incSeconds] = tc.key.split('+').map(Number);
     let label = I18N.t('tc.minutesShort', { m: minutes });
     if (incSeconds > 0) label += I18N.t('tc.incrementShort', { s: incSeconds });
     label += ' (' + I18N.t('cat.' + tc.category) + ')';
+    if (tc.key === DEVELOPER_PICK_TC_KEY) label += I18N.t('tc.developerPick');
     return label;
   }
 
