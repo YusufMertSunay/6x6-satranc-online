@@ -91,12 +91,17 @@
       </div>
     </div>
 
-    <div class="hidden" id="challengeIncoming" style="grid-column: 1 / -1">
+    <!-- Kullanıcı isteği: özel meydan okuma daveti ekranın SAĞ ALTINDA
+         görünsün -- bu yüzden bu kart artık grid içinde değil, .challenge-toast
+         sınıfıyla sabit (fixed) konumlandırılıyor (bkz. style.css). Oyun/analiz
+         sayfalarındaki aynı görünüm için de bkz. public/js/challenge-widget.js. -->
+    <div class="hidden challenge-toast" id="challengeIncoming">
       <div class="draw-offer-banner">
         <span id="challengeIncomingText"></span>
-        <div style="display:flex; gap:8px">
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
           <button class="primary" id="challengeAcceptBtn" data-i18n="common.accept">Kabul Et</button>
           <button class="secondary" id="challengeDeclineBtn" data-i18n="common.decline">Reddet</button>
+          <button class="secondary" id="challengeBlockBtn" data-i18n="lobby.challengeBlockBtn">Kullanıcıyı Engelle</button>
         </div>
       </div>
     </div>

@@ -41,7 +41,17 @@
   let me = null;
   let state = null;
   let myColor = null; // 'white' | 'black'
+  // Kullanıcı isteği (seyirci özelliği): myColor null ise bu oyunun oyuncusu
+  // değiliz -- ama artık hata verip durmuyoruz, salt-okunur SEYİRCİ modunda
+  // devam ediyoruz (bkz. init()). Tahtadaki tıklama/sürükleme etkileşimleri
+  // zaten myTurn()/pieceBelongsToMe() içindeki myColor karşılaştırmaları
+  // null ile hiçbir zaman eşleşmediği için EK bir kontrole gerek kalmadan
+  // otomatik olarak devre dışı kalıyor -- burada sadece banner/düğme
+  // görünürlüğünü ayarlamamız yeterli.
+  let isSpectator = false;
   let flipped = false;
+  let opponentUsername = null; // sadece oyuncular için (bkz. initBlockOpponentUi)
+  let opponentIsBlocked = false;
   let selected = null; // 'a1' gibi
   let legalMoves = []; // sıradaki oyuncu için tüm yasal hamleler (UCI)
   let clockTimer = null;
@@ -656,30 +666,35 @@
       else blackMs = Math.max(0, state.blackClockMs - elapsed);
     }
 
-    // Yerleşim her zaman sabit: alt kutu HER ZAMAN "ben", üst kutu HER ZAMAN
-    // "rakip" (renderPlayerNames() ile aynı kural) — bu, renge göre
-    // DEĞİŞMEMELİ. (Daha önce burada renge göre de seçim yapılıyordu, bu da
-    // siyah oyuncu için isim ile saat değerinin ters kutulara yazılmasına
-    // (bir tür "çapraz kablolama" hatasına) yol açıyordu.)
-    const myEl = $('bottomClock');
-    const oppEl = $('topClock');
-    const myMs = myColor === 'white' ? whiteMs : blackMs;
-    const oppMs = myColor === 'white' ? blackMs : whiteMs;
+    // Yerleşim artık "ben/rakip" değil, "alt/üst kare" üzerinden: bir OYUNCU
+    // için alt kare HER ZAMAN kendisi (flipped = myColor==='black'), bir
+    // SEYİRCİ içinse (kullanıcı isteği) alt kare HER ZAMAN beyaz (varsayılan,
+    // çevrilmemiş yön) — bkz. renderPlayerNames()'teki AYNI bottomColor/
+    // topColor mantığı. Oyuncular için bu, ESKİSİYLE BİREBİR AYNI sonucu verir.
+    const bottomColor = flipped ? 'black' : 'white';
+    const topColor = flipped ? 'white' : 'black';
+    const bottomEl = $('bottomClock');
+    const topEl = $('topClock');
+    const bottomMs = bottomColor === 'white' ? whiteMs : blackMs;
+    const topMs = topColor === 'white' ? whiteMs : blackMs;
 
-    myEl.textContent = formatMs(myMs);
-    oppEl.textContent = formatMs(oppMs);
+    bottomEl.textContent = formatMs(bottomMs);
+    topEl.textContent = formatMs(topMs);
 
     // Süre kutucuğu, o oyunun süre kontrolü KATEGORİSİNE ait eşiğin altına
-    // (veya eşitine) düşünce kırmızıya dönüyor — ister kendi süren ister
-    // rakibinki olsun, ilgili kutucuk kırmızı gösteriliyor.
+    // (veya eşitine) düşünce kırmızıya dönüyor — hangi taraf olursa olsun.
     const lowThreshold = LOW_TIME_MS[state.timeControlCategory] ?? 30000;
-    myEl.classList.toggle('low', myMs <= lowThreshold);
-    oppEl.classList.toggle('low', oppMs <= lowThreshold);
+    bottomEl.classList.toggle('low', bottomMs <= lowThreshold);
+    topEl.classList.toggle('low', topMs <= lowThreshold);
 
-    const myActive = state.status === 'active' && myTurn();
-    const oppActive = state.status === 'active' && !myTurn();
-    myEl.classList.toggle('active', myActive);
-    oppEl.classList.toggle('active', oppActive);
+    // Sırası gelen tarafın kutucuğu vurgulanıyor -- bu, "sıra bende mi"
+    // sorusundan bağımsız, doğrudan GERÇEK sırayı yansıtıyor (seyirci için
+    // de doğru çalışması gerekiyor).
+    const activeColor = state.whiteToMove ? 'white' : 'black';
+    const bottomActive = state.status === 'active' && activeColor === bottomColor;
+    const topActive = state.status === 'active' && activeColor === topColor;
+    bottomEl.classList.toggle('active', bottomActive);
+    topEl.classList.toggle('active', topActive);
 
     updateFirstMoveCountdown();
   }
@@ -759,6 +774,12 @@
     if (state.winnerColor === null) {
       outcomeText = I18N.t('result.draw');
       cls = '';
+    } else if (isSpectator) {
+      // Seyirci için "kazandın/kaybettin" anlamsız -- hangi oyuncunun
+      // kazandığını isimle gösteriyoruz.
+      const winnerName = state.winnerColor === 'white' ? state.whiteUsername : state.blackUsername;
+      outcomeText = I18N.t('game.playerWonBanner', { username: winnerName || '?' });
+      cls = '';
     } else if (state.winnerColor === myColor) {
       outcomeText = I18N.t('result.wonBanner');
       cls = '';
@@ -770,8 +791,9 @@
     let ratingLine = '';
     // Puansız (dostluk) oyunlarda puan hiç değişmediği için bu satır hiç
     // gösterilmiyor (bkz. renderUnrankedTag: bunun yerine küçük bir
-    // "Puansız Oyun" etiketi gösteriliyor).
-    if (state.ranked !== false && typeof state.whiteRatingAfter === 'number') {
+    // "Puansız Oyun" etiketi gösteriliyor). Seyirci için de kişisel bir puan
+    // değişimi olmadığından bu satır hiç gösterilmiyor.
+    if (!isSpectator && state.ranked !== false && typeof state.whiteRatingAfter === 'number') {
       const myRatingAfter = myColor === 'white' ? state.whiteRatingAfter : state.blackRatingAfter;
       const catLabel = state.timeControlCategory ? categoryLabel(state.timeControlCategory) : '';
       ratingLine = `<div class="rating-change">${I18N.t('game.newRatingLine', { category: catLabel, rating: myRatingAfter })}</div>`;
@@ -791,7 +813,10 @@
 
   function renderDrawOfferBanner() {
     const banner = $('drawOfferBanner');
-    const showIt = state.status === 'active' && state.drawOfferBy && state.drawOfferBy !== myColor;
+    // Seyirciler beraberlik teklifini yanıtlayamayacağı için bu banner
+    // onlara hiç gösterilmiyor (myColor null olduğu için karşılaştırma zaten
+    // yanlış sonuç verirdi -- bkz. isSpectator).
+    const showIt = !isSpectator && state.status === 'active' && state.drawOfferBy && state.drawOfferBy !== myColor;
     banner.classList.toggle('hidden', !showIt);
   }
 
@@ -805,7 +830,10 @@
 
     $('analysisActionRow').classList.toggle('hidden', state.status !== 'finished');
 
-    if (state.status !== 'finished') {
+    // Seyirciler yeni oyun teklif edemez/yanıtlayamaz -- analiz tahtası
+    // düğmesi (yukarısı) onlar için de görünür kalıyor (analiz artık herkese
+    // açık, bkz. server.js: getFinishedGameForUser).
+    if (isSpectator || state.status !== 'finished') {
       incomingBanner.classList.add('hidden');
       actionRow.classList.add('hidden');
       return;
@@ -822,21 +850,85 @@
     }
   }
 
+  // Kullanıcı isteği (seyirci özelliği): bu fonksiyon artık "ben/rakip"
+  // yerine "alt/üst kare" üzerinden çalışıyor (analysis.js'teki AYNI
+  // desenle tutarlı) -- bir OYUNCU için bu, ESKİSİYLE BİREBİR AYNI sonucu
+  // verir (alt kare hep kendisi); bir SEYİRCİ için ise myColor null olduğu
+  // için "(Sen)" eki hiçbir isme eklenmez ve alt kare varsayılan olarak
+  // (flipped=false) HER ZAMAN beyaz olur.
   function renderPlayerNames() {
-    const myName = myColor === 'white' ? state.whiteUsername : state.blackUsername;
-    const oppName = myColor === 'white' ? state.blackUsername : state.whiteUsername;
-    const myRating = myColor === 'white' ? state.whiteRating : state.blackRating;
-    const oppRating = myColor === 'white' ? state.blackRating : state.whiteRating;
-    $('bottomName').textContent = (myName || me.username) + I18N.t('common.youSuffix');
-    $('topName').textContent = oppName || I18N.t('common.opponent');
+    const bottomColor = flipped ? 'black' : 'white';
+    const topColor = flipped ? 'white' : 'black';
+    const nameFor = (color) => (color === 'white' ? state.whiteUsername : state.blackUsername) || (color === myColor ? me.username : I18N.t('common.' + color));
+    const ratingFor = (color) => (color === 'white' ? state.whiteRating : state.blackRating);
+    const suffix = (color) => (color === myColor ? I18N.t('common.youSuffix') : '');
+    $('bottomName').textContent = nameFor(bottomColor) + suffix(bottomColor);
+    $('topName').textContent = nameFor(topColor) + suffix(topColor);
     // İsimlerin yanında, bu oyunun süre kontrolü KATEGORİSİNE ait Elo puanı
-    // (hem kendimin hem rakibimin) gösteriliyor — bkz. server.js'de
-    // eklenen state.whiteRating/blackRating.
-    $('bottomRating').textContent = typeof myRating === 'number' ? myRating : '';
-    $('topRating').textContent = typeof oppRating === 'number' ? oppRating : '';
+    // gösteriliyor — bkz. server.js'de eklenen state.whiteRating/blackRating.
+    const bottomRating = ratingFor(bottomColor);
+    const topRating = ratingFor(topColor);
+    $('bottomRating').textContent = typeof bottomRating === 'number' ? bottomRating : '';
+    $('topRating').textContent = typeof topRating === 'number' ? topRating : '';
   }
 
+  function renderSpectatorBadge() {
+    const el = $('spectatorBadge');
+    if (el) el.classList.toggle('hidden', !isSpectator);
+  }
+
+  // Kullanıcı isteği: daha önce eklenen komple engelleme özelliği, oyun
+  // esnasında da bir düğme/seçenek olarak dursun -- sadece OYUNCULAR için
+  // (seyircinin bu oyunda "rakibi" yok). Butonun metni, o an engellenip
+  // engellenmediğine göre (Engelle <-> Engeli Kaldır) değişir.
+  async function initBlockOpponentUi() {
+    const row = $('blockOpponentRow');
+    if (!row) return;
+    if (isSpectator) { row.classList.add('hidden'); return; }
+    opponentUsername = myColor === 'white' ? state.blackUsername : state.whiteUsername;
+    row.classList.remove('hidden');
+    try {
+      const { usernames } = await api('GET', '/api/block/list');
+      opponentIsBlocked = !!opponentUsername && usernames.includes(opponentUsername);
+    } catch { opponentIsBlocked = false; }
+    renderBlockOpponentButton();
+  }
+
+  function renderBlockOpponentButton() {
+    const btn = $('blockOpponentBtn');
+    if (!btn) return;
+    btn.textContent = opponentIsBlocked ? I18N.t('game.unblockOpponentBtn') : I18N.t('game.blockOpponentBtn');
+  }
+
+  $('blockOpponentBtn').addEventListener('click', async () => {
+    if (!opponentUsername) return;
+    try {
+      if (opponentIsBlocked) {
+        if (!confirm(I18N.t('lobby.unblockConfirm', { username: opponentUsername }))) return;
+        await api('POST', '/api/block/remove', { username: opponentUsername });
+        opponentIsBlocked = false;
+      } else {
+        if (!confirm(I18N.t('game.blockOpponentConfirm', { username: opponentUsername }))) return;
+        await api('POST', '/api/block/add', { username: opponentUsername });
+        opponentIsBlocked = true;
+      }
+      renderBlockOpponentButton();
+      // Engel/susturma değişince, önceden gizli/görünür olan mesajların
+      // doğru sırayla güncellenmesi için sohbeti baştan çekiyoruz (bkz.
+      // chat.js: reload -- sunucu mesajları hiç silmiyor, sadece anlık
+      // olarak filtreliyor).
+      if (window.ChatUI) await ChatUI.reload();
+    } catch (err) { alert(I18N.tErr(err)); }
+  });
+
   function renderActionButtons() {
+    if (isSpectator) {
+      const cancelRow = $('cancelActionRow');
+      const normalRow = $('normalActionRow');
+      if (cancelRow) cancelRow.classList.add('hidden');
+      if (normalRow) normalRow.classList.add('hidden');
+      return;
+    }
     const active = state.status === 'active';
     // Kullanıcı isteği: siyah kendi İLK hamlesini yapana kadar hiçbir taraf
     // beraberlik teklif edemez ya da teslim olamaz -- bu dönemde tek çıkış
@@ -1014,6 +1106,13 @@
       const data = JSON.parse(e.data);
       window.location.href = '/game.html?id=' + data.gameId;
     });
+    // Sohbet / seyirci özelliği (kullanıcı isteği): gerçek zamanlı yeni
+    // mesajlar -- işleme (filtreleme, hangi kutuya ekleneceği, art arda
+    // mesaj sınırı arayüzü) tamamen public/js/chat.js'de.
+    sse.addEventListener('chat_message', (e) => {
+      const data = JSON.parse(e.data);
+      if (window.ChatUI) ChatUI.handleSseMessage(data);
+    });
   }
 
   async function reloadState() {
@@ -1071,17 +1170,28 @@
     const myCategory = state.timeControlCategory || 'bullet';
     $('userRating').textContent = (me.ratings && me.ratings[myCategory]) ?? '-';
 
+    // Kullanıcı isteği (seyirci özelliği): bu oyunun oyuncusu değilsek artık
+    // hata verip DURMUYORUZ -- salt-okunur SEYİRCİ modunda devam ediyoruz.
+    // Bu proje bilerek TAMAMEN AÇIK bir izleme modeli kullanıyor: giriş
+    // yapmış herhangi bir kullanıcı, linkini bilerek bu sayfayı açarsa
+    // izleyebilir (bkz. lib/gameManager.js: watchGame).
     myColor = state.whiteId === me.id ? 'white' : (state.blackId === me.id ? 'black' : null);
-    if (!myColor) {
-      setStatusMessage(I18N.t('err.NOT_A_PLAYER'), true);
-      return;
-    }
+    isSpectator = !myColor;
     flipped = myColor === 'black';
+    renderSpectatorBadge();
+
+    // Seyirci kaydı -- gerçek zamanlı sohbet yayınının (bkz. _broadcastChat)
+    // kime gideceğini belirlemek için sunucuya bildiriyoruz. Oyuncular da
+    // bunu çağırır (zararı yok, sadece bir Set'e ekleme).
+    try { await api('POST', `/api/game/${gameId}/watch`); } catch { /* önemli değil */ }
 
     buildBoardSkeleton();
     renderPlayerNames();
+    await initBlockOpponentUi();
     await refreshLegalMoves();
     renderAll();
+
+    if (window.ChatUI) await ChatUI.init(gameId, me.id);
 
     connectSse();
     clockTimer = setInterval(tickClocks, 250);
@@ -1090,6 +1200,10 @@
   window.addEventListener('beforeunload', () => {
     if (sse) sse.close();
     if (clockTimer) clearInterval(clockTimer);
+    // Seyirci kaydını en iyi çaba (best-effort) ile temizliyoruz -- sayfa
+    // kapanırken normal bir fetch güvenilir tamamlanmayabilir, keepalive:true
+    // tarayıcıya isteği sayfa kapansa bile göndermesini söylüyor.
+    try { fetch(`/api/game/${gameId}/unwatch`, { method: 'POST', keepalive: true }); } catch { /* önemli değil */ }
   });
 
   // ---------------- Tahta renkleri ----------------
@@ -1140,6 +1254,8 @@
   window.addEventListener('langchange', () => {
     document.title = I18N.t('title.game');
     if (state) { renderPlayerNames(); renderAll(); }
+    renderBlockOpponentButton();
+    if (window.ChatUI) ChatUI.refreshTexts();
   });
 
   initBoardColorSettings();

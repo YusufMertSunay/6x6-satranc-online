@@ -129,6 +129,14 @@ const ERROR_CODES = {
   // ---- Kullanıcı engelleme ----
   'Kendini engelleyemezsin.': 'CANNOT_BLOCK_SELF',
   'Bu kullanıcı seni engellemiş, ona oyun teklifi gönderemezsin.': 'BLOCKED_BY_TARGET',
+  // ---- Mesaj susturma (kullanıcı isteği: chat/seyirci özelliği) ----
+  'Kendini susturamazsın.': 'CANNOT_MUTE_SELF',
+  // ---- Sohbet / seyirci özelliği (kullanıcı isteği) ----
+  'Mesaj boş olamaz.': 'CHAT_EMPTY',
+  'Mesaj çok uzun (en fazla 500 karakter).': 'CHAT_TOO_LONG',
+  'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.': 'CHAT_PLAYER_RATE_LIMIT',
+  'Başka biri araya mesaj yazana kadar üst üste en fazla 3 mesaj gönderebilirsin.': 'CHAT_SPECTATOR_RATE_LIMIT',
+  'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.': 'REMATCH_BLOCKED_FOR_GAME',
 };
 
 // Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik
@@ -201,14 +209,22 @@ function serveStatic(req, res, pathname) {
 }
 
 // Analiz tahtası SADECE bitmiş bir oyun üzerinde çalışır (canlı oyun sırasında
-// motor erişimi YASAK ilkesiyle tutarlı) VE sadece o oyunun oyuncularından
-// biri erişebilir. Oyun hâlâ bellekte (gameManager) olabilir ya da 5 dakikalık
-// pencere geçip diske (store) yazılmış olabilir — ikisini de kontrol ediyoruz.
+// motor erişimi YASAK ilkesiyle tutarlı). ÖNCEDEN sadece o oyunun
+// oyuncularından biri erişebiliyordu -- kullanıcı isteğiyle (seyirci/chat
+// özelliği) bu artık İSTEĞE BAĞLI: giriş yapmış HERHANGİ bir kullanıcı bir
+// bitmiş oyunun analiz tahtasını (ve dolayısıyla birleşik sohbetini)
+// açabilir -- tıpkı /api/game/:id'nin de zaten oyuncu olmayanlara kapalı
+// olmaması gibi (bu proje bilerek tamamen açık bir izleme/inceleme modeli
+// kullanıyor, bkz. gameManager.js: watchGame). userId parametresi hâlâ
+// duruyor (isim de değiştirilmedi, çağrı yerlerinde gereksiz değişiklik
+// olmasın diye) ama artık erişimi KISITLAMAK için değil, sadece bilgi amaçlı
+// (ör. varyant ağacı hâlâ kullanıcı başına ayrı tutuluyor). Oyun hâlâ
+// bellekte (gameManager) olabilir ya da 5 dakikalık pencere geçip diske
+// (store) yazılmış olabilir — ikisini de kontrol ediyoruz.
 function getFinishedGameForUser(gameId, userId) {
   const live = gameManager.getGame(gameId);
   if (live) {
     if (live.status !== 'finished') return null;
-    if (live.whiteId !== userId && live.blackId !== userId) return null;
     return {
       startFen: live.startFen,
       movesUci: live.movesUci,
@@ -221,7 +237,6 @@ function getFinishedGameForUser(gameId, userId) {
   }
   const persisted = store.getGame(gameId);
   if (persisted) {
-    if (persisted.whiteId !== userId && persisted.blackId !== userId) return null;
     return {
       startFen: persisted.startFen,
       movesUci: persisted.movesUci,
@@ -798,6 +813,34 @@ async function handleApi(req, res, pathname, url) {
     }
   }
 
+  // ---- Mesaj susturma (kullanıcı isteği: chat/seyirci özelliği) ----
+  // Komple engellemeden (yukarısı) TAMAMEN AYRI -- sadece o kullanıcının
+  // mesajlarını (hangi sohbette olursa olsun) gizler, oyun teklifi/hızlı
+  // eşleştirme gibi hiçbir şeyi etkilemez (bkz. gameManager.js: muteUser).
+  if (pathname === '/api/mute/list' && req.method === 'GET') {
+    return sendJson(res, 200, { usernames: gameManager.listMutedUsers(user.id) });
+  }
+
+  if (pathname === '/api/mute/add' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = gameManager.muteUser(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/mute/remove' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = gameManager.unmuteUser(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
   const gameIdMatch = pathname.match(/^\/api\/game\/([^/]+)(\/.*)?$/);
   if (gameIdMatch) {
     const gameId = gameIdMatch[1];
@@ -888,6 +931,40 @@ async function handleApi(req, res, pathname, url) {
     if (sub === '/respond-rematch' && req.method === 'POST') {
       const { accept } = await readBody(req);
       try { return sendJson(res, 200, { state: gameManager.respondRematch(gameId, user.id, !!accept) }); }
+      catch (err) { return errJson(res, 400, err.message); }
+    }
+
+    // ---- Seyirci kaydı (kullanıcı isteği) ----
+    // Bir sayfa (canlı oyun EKRANI ya da bitmiş oyunun analiz tahtası)
+    // açıldığında/kapatıldığında çağrılır -- gerçek zamanlı sohbet
+    // yayınının (bkz. gameManager.js: _broadcastChat) kime gideceğini
+    // belirler. Oyuncular DA bu uçları çağırır (kendi oyunlarını izliyor
+    // sayılırlar) -- zararı yok, sadece Set'e ekleme.
+    if (sub === '/watch' && req.method === 'POST') {
+      try { gameManager.watchGame(gameId, user.id); return sendJson(res, 200, { ok: true }); }
+      catch (err) { return errJson(res, 404, err.message); }
+    }
+
+    if (sub === '/unwatch' && req.method === 'POST') {
+      gameManager.unwatchGame(gameId, user.id);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // ---- Sohbet (kullanıcı isteği: chat/seyirci özelliği) ----
+    // GET: bu kullanıcının bu oyun için görebileceği sohbet(ler)i döner
+    // (canlıyken oyuncu/seyirci ayrı, bittikten sonra tek birleşik sohbet --
+    // bkz. gameManager.js: getChat). POST: yeni bir mesaj gönderir; hangi
+    // sohbete (oyuncu/seyirci/birleşik) gideceğini ve art arda mesaj
+    // sınırını sunucu KENDİSİ belirler (bkz. sendChat) -- istemci sadece
+    // metni gönderir.
+    if (sub === '/chat' && req.method === 'GET') {
+      try { return sendJson(res, 200, gameManager.getChat(gameId, user.id)); }
+      catch (err) { return errJson(res, 404, err.message); }
+    }
+
+    if (sub === '/chat' && req.method === 'POST') {
+      const { text } = await readBody(req);
+      try { return sendJson(res, 200, gameManager.sendChat(gameId, user.id, text)); }
       catch (err) { return errJson(res, 400, err.message); }
     }
 

@@ -92,6 +92,62 @@
       <div class="pv-box" id="pvBox" title="Bu varyantı tahtaya uygula ve kaydet" data-i18n-title="analysis.pvBoxTitle">-</div>
     </div>
 
+    <!-- Kullanıcı isteği: oyun bittikten sonraki analiz tahtasında da,
+         oyuna dönmeye gerek kalmadan DOĞRUDAN yeni oyun teklif edilebilsin
+         (sadece bu bitmiş oyunun iki oyuncusu için anlamlı -- bkz.
+         analysis.js: initRematchAndBlockUi). -->
+    <div class="hidden draw-offer-banner" id="rematchOfferBanner">
+      <span data-i18n="game.rematchOfferedByOpponent">Rakibin yeni oyun teklif etti.</span>
+      <div style="display:flex; gap:6px">
+        <button class="primary" id="acceptRematchBtn" data-i18n="common.accept">Kabul Et</button>
+        <button class="secondary" id="declineRematchBtn" data-i18n="common.decline">Reddet</button>
+      </div>
+    </div>
+
+    <div class="hidden action-row" id="rematchActionRow">
+      <button class="primary" id="offerRematchBtn" data-i18n="game.offerRematch">Yeni Oyun Teklif Et</button>
+    </div>
+
+    <!-- Kullanıcı isteği: komple engelleme özelliği, analiz tahtasında da
+         bir düğme/seçenek olarak dursun (sadece bu oyunun iki oyuncusu
+         için -- seyircinin burada "rakibi" yok). -->
+    <div class="hidden action-row" id="blockOpponentRow">
+      <button class="secondary" id="blockOpponentBtn" type="button" data-i18n="game.blockOpponentBtn">Rakibi Engelle</button>
+    </div>
+
+    <!-- Sohbet (kullanıcı isteği): oyun bittikten sonra oyuncu ve seyirci
+         sohbetleri BİRLEŞİR, herkes aynı sohbette görebilir/yazabilir.
+         game.html ile birebir AYNI markup, bkz. public/js/chat.js. -->
+    <div class="chat-section" id="chatSection">
+      <div class="chat-section-header">
+        <button type="button" class="secondary tiny" id="chatHideToggleBtn" data-i18n="chat.hide">Sohbeti Gizle</button>
+        <button type="button" class="secondary tiny" id="chatMuteManageBtn" data-i18n="chat.manageMutedBtn">Susturduklarım</button>
+      </div>
+      <div class="hidden" id="chatMutedPanel">
+        <ul class="games-list" id="chatMutedList"></ul>
+      </div>
+      <div id="chatPanelsWrap">
+        <div class="chat-box" id="primaryChatBox">
+          <div class="chat-box-title" id="primaryChatTitle" data-i18n="chat.mergedChatTitle">Sohbet</div>
+          <div class="chat-messages" id="primaryChatMessages"></div>
+          <div class="hint-text error-text hidden" id="primaryChatHint"></div>
+          <form class="chat-form" id="primaryChatForm">
+            <input type="text" id="primaryChatInput" maxlength="500" data-i18n-placeholder="chat.placeholder" placeholder="Bir mesaj yaz...">
+            <button class="primary" type="submit" data-i18n="chat.send">Gönder</button>
+          </form>
+        </div>
+        <div class="chat-box hidden" id="secondaryChatBox">
+          <div class="chat-box-title" id="secondaryChatTitle" data-i18n="chat.spectatorChatTitle">Seyirci Sohbeti</div>
+          <div class="chat-messages" id="secondaryChatMessages"></div>
+          <div class="hint-text error-text hidden" id="secondaryChatHint"></div>
+          <form class="chat-form" id="secondaryChatForm">
+            <input type="text" id="secondaryChatInput" maxlength="500" data-i18n-placeholder="chat.placeholder" placeholder="Bir mesaj yaz...">
+            <button class="primary" type="submit" data-i18n="chat.send">Gönder</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <div style="display:flex; justify-content:center; gap:16px">
       <a id="backLink" href="/" class="btn secondary" data-i18n="nav.backToGame">← Oyuna dön</a>
       <a href="/" class="btn secondary" data-i18n="nav.backToLobby">← Lobiye dön</a>
@@ -107,6 +163,8 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/challenge-widget.js"></script>
 <script src="/js/analysis.js"></script>
 </body>
 </html>

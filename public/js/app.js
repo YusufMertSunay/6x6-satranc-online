@@ -401,6 +401,26 @@
     renderIncomingChallenge();
   });
 
+  // Kullanıcı isteği: özel meydan okuma davetinde Kabul Et/Reddet'in yanında
+  // bir de "Kullanıcıyı Engelle" seçeneği olsun -- komple engelleme
+  // (blockUserRequest, yukarısı) + davetin de reddedilmesi (teklif sahibi
+  // bilgilensin diye).
+  $('challengeBlockBtn').addEventListener('click', async () => {
+    if (!incomingChallenge) return;
+    const username = incomingChallenge.fromUsername;
+    const challengeId = incomingChallenge.challengeId;
+    if (!confirm(I18N.t('lobby.blockConfirm', { username }))) return;
+    try {
+      const res = await blockUserRequest(username);
+      try { await api('POST', '/api/challenge/respond', { challengeId, accept: false }); } catch { /* önemli değil */ }
+      alert(I18N.t('lobby.blockSuccess', { username: res.username }));
+    } catch (err) {
+      alert(I18N.tErr(err));
+    }
+    incomingChallenge = null;
+    renderIncomingChallenge();
+  });
+
   // ---------------- Kullanıcı engelleme (kullanıcı isteği) ----------------
   // Engellenen kullanıcı artık bize hiçbir şekilde oyun teklif edemez ve
   // hızlı eşleştirmede bizimle eşleşemez -- ama biz istersek ona yine de

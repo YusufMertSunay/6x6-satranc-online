@@ -60,6 +60,7 @@
 
   <div class="side-panel">
     <span class="hidden unranked-tag" id="unrankedTag" data-i18n="game.unrankedTag">Puansız Oyun</span>
+    <span class="hidden spectator-badge" id="spectatorBadge" data-i18n="game.spectatorBadge">Seyirci modundasın</span>
     <div class="status-box" id="statusBox" data-i18n="status.loading">Yükleniyor...</div>
     <span class="hidden first-move-countdown" id="firstMoveCountdown"></span>
 
@@ -100,6 +101,45 @@
       <button class="danger" id="resignBtn" data-i18n="game.resign">Teslim Ol</button>
     </div>
 
+    <!-- Kullanıcı isteği: daha önce eklenen komple engelleme özelliği, oyun
+         esnasında da bir düğme/seçenek olarak dursun (sadece oyunculara --
+         seyirciler için anlamı yok, bkz. game.js: renderBlockOpponentRow). -->
+    <div class="hidden action-row" id="blockOpponentRow">
+      <button class="secondary" id="blockOpponentBtn" type="button" data-i18n="game.blockOpponentBtn">Rakibi Engelle</button>
+    </div>
+
+    <!-- Sohbet / seyirci sohbeti (kullanıcı isteği) -- game.html ve
+         analysis.html birebir AYNI markup'ı kullanıyor, bkz. public/js/chat.js. -->
+    <div class="chat-section" id="chatSection">
+      <div class="chat-section-header">
+        <button type="button" class="secondary tiny" id="chatHideToggleBtn" data-i18n="chat.hide">Sohbeti Gizle</button>
+        <button type="button" class="secondary tiny" id="chatMuteManageBtn" data-i18n="chat.manageMutedBtn">Susturduklarım</button>
+      </div>
+      <div class="hidden" id="chatMutedPanel">
+        <ul class="games-list" id="chatMutedList"></ul>
+      </div>
+      <div id="chatPanelsWrap">
+        <div class="chat-box" id="primaryChatBox">
+          <div class="chat-box-title" id="primaryChatTitle" data-i18n="chat.playerChatTitle">Oyuncu Sohbeti</div>
+          <div class="chat-messages" id="primaryChatMessages"></div>
+          <div class="hint-text error-text hidden" id="primaryChatHint"></div>
+          <form class="chat-form" id="primaryChatForm">
+            <input type="text" id="primaryChatInput" maxlength="500" data-i18n-placeholder="chat.placeholder" placeholder="Bir mesaj yaz...">
+            <button class="primary" type="submit" data-i18n="chat.send">Gönder</button>
+          </form>
+        </div>
+        <div class="chat-box hidden" id="secondaryChatBox">
+          <div class="chat-box-title" id="secondaryChatTitle" data-i18n="chat.spectatorChatTitle">Seyirci Sohbeti</div>
+          <div class="chat-messages" id="secondaryChatMessages"></div>
+          <div class="hint-text error-text hidden" id="secondaryChatHint"></div>
+          <form class="chat-form" id="secondaryChatForm">
+            <input type="text" id="secondaryChatInput" maxlength="500" data-i18n-placeholder="chat.placeholder" placeholder="Bir mesaj yaz...">
+            <button class="primary" type="submit" data-i18n="chat.send">Gönder</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <a href="/" class="btn secondary" style="text-align:center" data-i18n="nav.backToLobby">← Lobiye dön</a>
   </div>
 </div>
@@ -112,6 +152,8 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/challenge-widget.js"></script>
 <script src="/js/game.js"></script>
 </body>
 </html>

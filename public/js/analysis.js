@@ -1456,6 +1456,140 @@
     });
   }
 
+  // ---------------- Yeni oyun teklifi / komple engelleme / sohbet (kullanıcı isteği) ----------------
+  // Kullanıcı isteği: oyun bittikten sonraki bu analiz tahtasında da,
+  // OYUNA DÖNMEYE GEREK KALMADAN doğrudan yeni oyun teklif edilebilsin;
+  // daha önce eklenen komple engelleme özelliği burada da bir düğme olarak
+  // dursun; hem oyuncu+seyirci sohbeti de (birleşik olarak) burada olsun.
+  // Bunların HİÇBİRİ freeMode'da (gerçek bir oyuna bağlı olmayan serbest
+  // analiz) anlamlı değil -- orada whiteId/blackId/gameId yok.
+  let sse = null;
+  let rematchOfferBy = null; // null | 'white' | 'black' -- bkz. reloadRematchState
+  let opponentUsername = null;
+  let opponentIsBlocked = false;
+  // NOT: myColor init() içinde (analysis-start cevabı geldikten SONRA)
+  // atanıyor -- bu yüzden burada bir kez hesaplayıp sabitlemek yerine, her
+  // çağrıldığında GÜNCEL değeri okuyan bir fonksiyon kullanıyoruz.
+  function isRealPlayer() { return !freeMode && !!myColor; } // bu bitmiş oyunun iki oyuncusundan biri miyiz?
+
+  async function reloadRematchState() {
+    if (freeMode) return;
+    try {
+      const { state: liveState } = await api('GET', `/api/game/${gameId}`);
+      rematchOfferBy = liveState.rematchOfferBy || null;
+    } catch { rematchOfferBy = null; }
+    renderRematchUi();
+  }
+
+  function renderRematchUi() {
+    const incomingBanner = $('rematchOfferBanner');
+    const actionRow = $('rematchActionRow');
+    const offerBtn = $('offerRematchBtn');
+    if (!incomingBanner || !actionRow || !offerBtn) return;
+    if (!isRealPlayer()) {
+      incomingBanner.classList.add('hidden');
+      actionRow.classList.add('hidden');
+      return;
+    }
+    const opponentOffered = rematchOfferBy && rematchOfferBy !== myColor;
+    incomingBanner.classList.toggle('hidden', !opponentOffered);
+    actionRow.classList.toggle('hidden', opponentOffered);
+    if (!opponentOffered) {
+      const iOffered = !!rematchOfferBy && rematchOfferBy === myColor;
+      offerBtn.disabled = iOffered;
+      offerBtn.textContent = iOffered ? I18N.t('game.rematchPending') : I18N.t('game.offerRematch');
+    }
+  }
+
+  if ($('offerRematchBtn')) {
+    $('offerRematchBtn').addEventListener('click', async () => {
+      try {
+        const { state: newState } = await api('POST', `/api/game/${gameId}/offer-rematch`);
+        rematchOfferBy = newState.rematchOfferBy || null;
+        renderRematchUi();
+      } catch (err) { alert(I18N.describeOfferError(err)); }
+    });
+  }
+  if ($('acceptRematchBtn')) {
+    $('acceptRematchBtn').addEventListener('click', async () => {
+      try {
+        await api('POST', `/api/game/${gameId}/respond-rematch`, { accept: true });
+        // Kabul edilince sunucu yeni oyunu başlatıp 'match_found' gönderecek
+        // -- yönlendirme aşağıdaki SSE dinleyicisinde yapılıyor.
+      } catch (err) { alert(I18N.tErr(err)); }
+    });
+  }
+  if ($('declineRematchBtn')) {
+    $('declineRematchBtn').addEventListener('click', async () => {
+      try {
+        await api('POST', `/api/game/${gameId}/respond-rematch`, { accept: false });
+        rematchOfferBy = null;
+        renderRematchUi();
+      } catch (err) { alert(I18N.tErr(err)); }
+    });
+  }
+
+  async function initBlockOpponentUi() {
+    const row = $('blockOpponentRow');
+    if (!row) return;
+    if (!isRealPlayer()) { row.classList.add('hidden'); return; }
+    opponentUsername = myColor === 'white' ? blackUsername : whiteUsername;
+    row.classList.remove('hidden');
+    try {
+      const { usernames } = await api('GET', '/api/block/list');
+      opponentIsBlocked = !!opponentUsername && usernames.includes(opponentUsername);
+    } catch { opponentIsBlocked = false; }
+    renderBlockOpponentButton();
+  }
+
+  function renderBlockOpponentButton() {
+    const btn = $('blockOpponentBtn');
+    if (!btn) return;
+    btn.textContent = opponentIsBlocked ? I18N.t('game.unblockOpponentBtn') : I18N.t('game.blockOpponentBtn');
+  }
+
+  if ($('blockOpponentBtn')) {
+    $('blockOpponentBtn').addEventListener('click', async () => {
+      if (!opponentUsername) return;
+      try {
+        if (opponentIsBlocked) {
+          if (!confirm(I18N.t('lobby.unblockConfirm', { username: opponentUsername }))) return;
+          await api('POST', '/api/block/remove', { username: opponentUsername });
+          opponentIsBlocked = false;
+        } else {
+          if (!confirm(I18N.t('game.blockOpponentConfirm', { username: opponentUsername }))) return;
+          await api('POST', '/api/block/add', { username: opponentUsername });
+          opponentIsBlocked = true;
+        }
+        renderBlockOpponentButton();
+        if (window.ChatUI) await ChatUI.reload();
+      } catch (err) { alert(I18N.tErr(err)); }
+    });
+  }
+
+  function connectSse() {
+    if (freeMode) return;
+    sse = new EventSource('/events');
+    sse.addEventListener('rematch_offered', reloadRematchState);
+    sse.addEventListener('rematch_declined', reloadRematchState);
+    sse.addEventListener('match_found', (e) => {
+      const data = JSON.parse(e.data);
+      window.location.href = '/game.html?id=' + data.gameId;
+    });
+    sse.addEventListener('chat_message', (e) => {
+      const data = JSON.parse(e.data);
+      if (window.ChatUI) ChatUI.handleSseMessage(data);
+    });
+    sse.onerror = () => { /* tarayıcı otomatik olarak yeniden bağlanmayı dener */ };
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (sse) sse.close();
+    if (!freeMode) {
+      try { fetch(`/api/game/${gameId}/unwatch`, { method: 'POST', keepalive: true }); } catch { /* önemli değil */ }
+    }
+  });
+
   // ---------------- Başlangıç ----------------
 
   async function init() {
@@ -1503,6 +1637,14 @@
       $('backLink').classList.add('hidden');
     } else {
       $('backLink').href = '/game.html?id=' + gameId;
+      // Seyirci kaydı (kullanıcı isteği) -- gerçek zamanlı sohbet yayınının
+      // kime gideceğini belirlemek için. Gerçek oyuncular da bunu çağırır
+      // (zararı yok, bkz. lib/gameManager.js: watchGame).
+      try { await api('POST', `/api/game/${gameId}/watch`); } catch { /* önemli değil */ }
+      await initBlockOpponentUi();
+      await reloadRematchState();
+      if (window.ChatUI) await ChatUI.init(gameId, me.id);
+      connectSse();
     }
 
     buildBoardSkeleton();
@@ -1555,6 +1697,9 @@
         renderEval(lastEvalData);
       }
     }
+    renderRematchUi();
+    renderBlockOpponentButton();
+    if (window.ChatUI) ChatUI.refreshTexts();
   });
 
   initBoardColorSettings();

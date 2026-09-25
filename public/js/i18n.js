@@ -242,6 +242,13 @@
       'err.DRAW_OFFER_PERIOD_LIMIT': 'Her 3 hamlelik periyotta en fazla 1 kez beraberlik teklif edebilirsin. Birkaç hamle sonra tekrar dene.',
       'err.CANNOT_BLOCK_SELF': 'Kendini engelleyemezsin.',
       'err.BLOCKED_BY_TARGET': 'Bu kullanıcı seni engellemiş, ona oyun teklifi gönderemezsin.',
+      // ---- Sohbet / seyirci / mesaj susturma özelliği (kullanıcı isteği) ----
+      'err.CANNOT_MUTE_SELF': 'Kendini susturamazsın.',
+      'err.CHAT_EMPTY': 'Mesaj boş olamaz.',
+      'err.CHAT_TOO_LONG': 'Mesaj çok uzun (en fazla 500 karakter).',
+      'err.CHAT_PLAYER_RATE_LIMIT': 'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.',
+      'err.CHAT_SPECTATOR_RATE_LIMIT': 'Başka biri araya mesaj yazana kadar üst üste en fazla 3 mesaj gönderebilirsin.',
+      'err.REMATCH_BLOCKED_FOR_GAME': 'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
       'duration.hoursMinutes': '{h} saat {m} dakika',
@@ -255,6 +262,37 @@
       'analysis.confirmDeleteVariation': 'Bu varyantı (ve varsa devamındaki hamleleri) silmek istediğine emin misin?',
       'analysis.deleteVariationTitle': 'Bu varyantı sil',
       'analysis.pvBoxTitle': 'Bu varyantı tahtaya uygula ve kaydet',
+
+      // ---- Seyirci modu (kullanıcı isteği) ----
+      'game.spectatorBadge': 'Seyirci modundasın',
+      'game.playerWonBanner': '{username} kazandı!',
+
+      // ---- Sohbet / seyirci sohbeti (kullanıcı isteği) ----
+      'chat.playerChatTitle': 'Oyuncu Sohbeti',
+      'chat.spectatorChatTitle': 'Seyirci Sohbeti',
+      'chat.mergedChatTitle': 'Sohbet',
+      'chat.spectatorReadOnlyNote': 'Bu sohbeti sadece okuyabilirsin, oyuncular yazabilir.',
+      'chat.placeholder': 'Bir mesaj yaz...',
+      'chat.send': 'Gönder',
+      'chat.hide': 'Sohbeti Gizle',
+      'chat.show': 'Sohbeti Göster',
+      'chat.emptyNote': 'Henüz mesaj yok.',
+      'chat.muteButtonTitle': 'Bu kullanıcının mesajlarını (sadece senin için) gizle',
+      'chat.manageMutedBtn': 'Susturduklarım',
+      'chat.mutedListEmpty': 'Kimseyi susturmadın.',
+      'chat.unmuteButton': 'Susturmayı Kaldır',
+      'chat.playerRateLimitHint': 'Rakibin cevap verene kadar mesaj gönderemezsin.',
+      'chat.spectatorRateLimitHint': 'Başka biri araya yazana kadar mesaj gönderemezsin.',
+      'chat.sendFailedPrefix': 'Mesaj gönderilemedi: ',
+      'chat.loadFailedPrefix': 'Sohbet yüklenemedi: ',
+
+      // ---- Oyun içi/analizdeki komple engelleme düğmesi (kullanıcı isteği) ----
+      'game.blockOpponentBtn': 'Rakibi Engelle',
+      'game.unblockOpponentBtn': 'Rakip Engelini Kaldır',
+      'game.blockOpponentConfirm': '{username} adlı rakibini engellemek istediğine emin misin? Oyun devam eder, ama rakibin (bu oyun bittikten sonra) sana yeni oyun teklif edemez ve mesajları artık sana ulaşmaz. İstersen daha sonra bu engeli kaldırabilirsin.',
+
+      // ---- Site geneli sağ-alt meydan okuma bildirimi (kullanıcı isteği) ----
+      'lobby.challengeBlockBtn': 'Kullanıcıyı Engelle',
     },
     en: {
       'brand.titleHome': '6x6 <span class="accent">Chess</span> Online',
@@ -455,6 +493,13 @@
       'err.DRAW_OFFER_PERIOD_LIMIT': "You can only offer a draw once per 3-move period. Try again in a few moves.",
       'err.CANNOT_BLOCK_SELF': "You can't block yourself.",
       'err.BLOCKED_BY_TARGET': "This user has blocked you, so you can't send them a game offer.",
+      // ---- Chat / spectator / muting feature ----
+      'err.CANNOT_MUTE_SELF': "You can't mute yourself.",
+      'err.CHAT_EMPTY': "Message can't be empty.",
+      'err.CHAT_TOO_LONG': 'Message is too long (500 characters max).',
+      'err.CHAT_PLAYER_RATE_LIMIT': "You can send at most 2 messages in a row until your opponent replies.",
+      'err.CHAT_SPECTATOR_RATE_LIMIT': "You can send at most 3 messages in a row until someone else posts.",
+      'err.REMATCH_BLOCKED_FOR_GAME': "You were declined twice in a row in this game, so you can no longer offer this opponent a rematch for this specific game.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----
       'duration.hoursMinutes': '{h}h {m}m',
@@ -468,6 +513,37 @@
       'analysis.confirmDeleteVariation': 'Delete this variation (and any moves after it)?',
       'analysis.deleteVariationTitle': 'Delete this variation',
       'analysis.pvBoxTitle': 'Apply this line to the board and save it',
+
+      // ---- Spectator mode ----
+      'game.spectatorBadge': "You're spectating",
+      'game.playerWonBanner': '{username} won!',
+
+      // ---- Chat / spectator chat ----
+      'chat.playerChatTitle': 'Player Chat',
+      'chat.spectatorChatTitle': 'Spectator Chat',
+      'chat.mergedChatTitle': 'Chat',
+      'chat.spectatorReadOnlyNote': 'You can only read this chat, only players can write to it.',
+      'chat.placeholder': 'Type a message...',
+      'chat.send': 'Send',
+      'chat.hide': 'Hide Chat',
+      'chat.show': 'Show Chat',
+      'chat.emptyNote': 'No messages yet.',
+      'chat.muteButtonTitle': "Hide this user's messages (just for you)",
+      'chat.manageMutedBtn': 'Muted Users',
+      'chat.mutedListEmpty': "You haven't muted anyone.",
+      'chat.unmuteButton': 'Unmute',
+      'chat.playerRateLimitHint': 'You need to wait for your opponent to reply before sending another message.',
+      'chat.spectatorRateLimitHint': 'You need to wait for someone else to post before sending another message.',
+      'chat.sendFailedPrefix': "Couldn't send message: ",
+      'chat.loadFailedPrefix': "Couldn't load chat: ",
+
+      // ---- In-game/analysis block button ----
+      'game.blockOpponentBtn': 'Block Opponent',
+      'game.unblockOpponentBtn': 'Unblock Opponent',
+      'game.blockOpponentConfirm': "Are you sure you want to block {username}? The game will continue, but they won't be able to offer you a rematch after this game ends, and their messages will no longer reach you. You can remove this block later if you want.",
+
+      // ---- Site-wide bottom-right challenge notification ----
+      'lobby.challengeBlockBtn': 'Block User',
     },
   };
 
