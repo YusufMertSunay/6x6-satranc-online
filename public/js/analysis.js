@@ -80,6 +80,16 @@
   let generation = 0; // her navigasyonda artar; eski (gecikmiş) motor cevapları bununla elenir
   let bestMoveHighlight = null; // { from, to, promotion, whiteToMove } ya da null (promotion terfi hamlelerinde dolu)
 
+  // Kullanıcı isteğiyle: analiz tahtasında (hem oyun-bazlı hem serbest
+  // analizde -- bu dosya ikisini de yönetiyor) motoru bir düğmeyle (dil
+  // seçme düğmesi gibi) tamamen kapatıp açabiliyoruz. Kapalıyken motora HİÇ
+  // istek gönderilmiyor (sunucu/motor boşuna meşgul edilmiyor) ve en iyi
+  // hamle oku (mavi ok) otomatik olarak siliniyor -- bkz. initEngineToggle /
+  // requestEvalForCurrentPosition. Tercih, dil tercihinin aksine hesaba
+  // değil, sadece bu tarayıcıya (localStorage) kaydediliyor -- bkz.
+  // initBoardColorSettings'teki aynı kalıp.
+  let engineEnabled = true;
+
   // Motor artık bir pozisyon için TOPLAM 9 saniye (kesintisiz) düşünüp bu
   // süre boyunca birkaç kez ARA GÜNCELLEME gönderiyor (bkz. server.js:
   // streamAnalysisEvaluate) -- kullanıcı hızlıca başka bir pozisyona
@@ -1313,6 +1323,24 @@
     renderNavButtons();
     renderClocks();
 
+    await requestEvalForCurrentPosition(myGen, movesSoFar);
+  }
+
+  // Bir pozisyon için motor değerlendirmesini ister ve ekranı (eval etiketi,
+  // PV kutusu, en iyi hamle oku, eval barı) günceller. refreshPosition()
+  // (her navigasyondan sonra) VE motoru düğmeyle yeniden AÇAN kullanıcı
+  // (initEngineToggle) tarafından çağrılıyor -- motor KAPALIYKEN sunucuya
+  // hiç istek gönderilmiyor, sadece "Motor kapalı" yazısı gösteriliyor ve
+  // en iyi hamle oku (varsa) hemen siliniyor (kullanıcı isteği).
+  async function requestEvalForCurrentPosition(myGen, movesSoFar) {
+    if (!engineEnabled) {
+      $('evalLabel').textContent = I18N.t('analysis.engineDisabled');
+      $('pvBox').textContent = '-';
+      bestMoveHighlight = null;
+      drawBestMoveArrow();
+      return;
+    }
+
     $('evalLabel').textContent = I18N.t('analysis.evalCalculating');
     $('pvBox').textContent = '...';
 
@@ -1334,6 +1362,57 @@
       if (err.name === 'AbortError') return;
       $('evalLabel').textContent = I18N.t('err.evalFailedPrefix') + I18N.tErr(err);
     }
+  }
+
+  // ---------------- Motor aç/kapat düğmesi (kullanıcı isteği) ----------------
+  // Tercih dil seçimi gibi görsel bir düğme çifti (Açık/Kapalı) ile
+  // değiştiriliyor, ama dil tercihinin aksine HESABA değil sadece bu
+  // tarayıcıya kaydediliyor (initBoardColorSettings'teki localStorage
+  // kalıbıyla aynı) -- çünkü bu, hesap bazında değil cihaz/tarayıcı bazında
+  // bir tercih olarak düşünüldü.
+  function updateEngineToggleUI() {
+    $('engineOnBtn').classList.toggle('active', engineEnabled);
+    $('engineOffBtn').classList.toggle('active', !engineEnabled);
+  }
+
+  function initEngineToggle() {
+    try {
+      engineEnabled = localStorage.getItem('analysisEngineEnabled') !== '0';
+    } catch { /* localStorage kapalı/engelliyse motor varsayılan olarak açık kalır */ }
+    updateEngineToggleUI();
+
+    $('engineOnBtn').addEventListener('click', () => {
+      if (engineEnabled) return;
+      engineEnabled = true;
+      try { localStorage.setItem('analysisEngineEnabled', '1'); } catch { }
+      updateEngineToggleUI();
+      // Motor yeniden açılınca, o an ekranda duran pozisyon için hemen bir
+      // değerlendirme isteği gönderiyoruz -- kullanıcı ayrıca bir hamle
+      // yapmak/gezinmek zorunda kalmasın.
+      if (currentFen) {
+        const myGen = ++generation;
+        requestEvalForCurrentPosition(myGen, movesForPath(currentPath));
+      }
+    });
+
+    $('engineOffBtn').addEventListener('click', () => {
+      if (!engineEnabled) return;
+      engineEnabled = false;
+      try { localStorage.setItem('analysisEngineEnabled', '0'); } catch { }
+      updateEngineToggleUI();
+      // Sürmekte olan bir değerlendirme isteği varsa iptal ediyoruz (motoru
+      // sunucuda boşuna meşgul etmemek için) ve en iyi hamle okunu (mavi ok)
+      // kullanıcı isteğiyle HEMEN siliyoruz.
+      ++generation;
+      if (currentEvalAbort) {
+        try { currentEvalAbort.abort(); } catch { /* zaten bitmiş olabilir */ }
+        currentEvalAbort = null;
+      }
+      bestMoveHighlight = null;
+      drawBestMoveArrow();
+      $('evalLabel').textContent = I18N.t('analysis.engineDisabled');
+      $('pvBox').textContent = '-';
+    });
   }
 
   // ---------------- Tahta renkleri (oyun sayfasıyla aynı, ortak ayar) ----------------
@@ -1467,10 +1546,18 @@
     if (currentFen) {
       renderPlayerNames();
       renderStatus();
-      if (lastEvalData) renderEval(lastEvalData);
+      // Motor KAPALIYKEN eski (motor açıkken alınmış) değerlendirmeyi yeni
+      // dilde yeniden göstermek yanıltıcı olur -- "Motor kapalı" yazısını
+      // sadece yeni dilde tekrar basıyoruz.
+      if (!engineEnabled) {
+        $('evalLabel').textContent = I18N.t('analysis.engineDisabled');
+      } else if (lastEvalData) {
+        renderEval(lastEvalData);
+      }
     }
   });
 
   initBoardColorSettings();
+  initEngineToggle();
   init();
 })();

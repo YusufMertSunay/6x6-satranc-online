@@ -182,7 +182,16 @@
   });
 
   async function loadMyGames() {
-    const { games } = await api('GET', '/api/my-games');
+    // Oyun geçmişindeki rakiplerin hangilerinin ZATEN engellenmiş olduğunu
+    // bilmemiz gerekiyor -- engellenmiş bir rakibin yanında tekrar "Engelle"
+    // düğmesi göstermiyoruz (bkz. aşağısı). /api/block/list ucuz bir çağrı
+    // olduğu için burada ayrıca (loadBlockedList'ten bağımsız) çekiyoruz --
+    // böylece bu iki fonksiyonun çağrılma sırası önemli olmuyor.
+    const [{ games }, { usernames: blockedUsernames }] = await Promise.all([
+      api('GET', '/api/my-games'),
+      api('GET', '/api/block/list'),
+    ]);
+    const blockedSet = new Set(blockedUsernames);
     const list = $('myGamesList');
     list.innerHTML = '';
     if (!games.length) {
@@ -194,7 +203,41 @@
       const meWhite = g.whiteId === currentUser.id;
       const oppName = meWhite ? g.blackUsername : g.whiteUsername;
       const resultText = describeResult(g, meWhite);
-      li.innerHTML = `<span>vs ${escapeHtml(oppName || '?')} (${escapeHtml(g.timeControlKey)})</span><span>${resultText}</span>`;
+
+      const left = document.createElement('span');
+      left.textContent = `vs ${oppName || '?'} (${g.timeControlKey})`;
+
+      const right = document.createElement('span');
+      right.className = 'game-history-right';
+      const resultSpan = document.createElement('span');
+      resultSpan.textContent = resultText;
+      right.appendChild(resultSpan);
+
+      // Kullanıcı isteği: rakibi kullanıcı adını TEK TEK YAZMADAN, oyun
+      // geçmişinden tek bir düğmeyle engelleyebilsin (manuel yazma seçeneği
+      // -- aşağıdaki #blockForm -- de aynen duruyor). Rakip zaten
+      // engellenmişse veya bilinmiyorsa düğmeyi hiç göstermiyoruz.
+      if (oppName && !blockedSet.has(oppName)) {
+        const blockBtn = document.createElement('button');
+        blockBtn.type = 'button';
+        blockBtn.className = 'secondary tiny';
+        blockBtn.textContent = I18N.t('lobby.blockButton');
+        blockBtn.title = I18N.t('lobby.blockFromHistoryTitle');
+        blockBtn.addEventListener('click', async (e) => {
+          e.stopPropagation(); // satırın kendi tıklama olayı (oyuna git) tetiklenmesin
+          if (!confirm(I18N.t('lobby.blockConfirm', { username: oppName }))) return;
+          try {
+            const res = await blockUserRequest(oppName);
+            alert(I18N.t('lobby.blockSuccess', { username: res.username }));
+          } catch (err) {
+            alert(I18N.tErr(err));
+          }
+        });
+        right.appendChild(blockBtn);
+      }
+
+      li.appendChild(left);
+      li.appendChild(right);
       li.style.cursor = 'pointer';
       li.addEventListener('click', () => { window.location.href = '/game.html?id=' + g.id; });
       list.appendChild(li);
@@ -363,6 +406,17 @@
   // hızlı eşleştirmede bizimle eşleşemez -- ama biz istersek ona yine de
   // meydan okuyabiliriz (bkz. gameManager.js: blockUser/createChallenge).
 
+  // Engelleme isteğini sunucuya gönderir ve başarılıysa hem "Engellediklerin"
+  // listesini hem de oyun geçmişini (buradaki "Engelle" düğmelerinin
+  // durumu güncellensin diye -- bkz. loadMyGames) yeniliyor. Hem aşağıdaki
+  // manuel engelleme formu HEM DE oyun geçmişindeki tek tıkla engelleme
+  // düğmesi (loadMyGames) bu ortak fonksiyonu kullanıyor.
+  async function blockUserRequest(username) {
+    const res = await api('POST', '/api/block/add', { username });
+    await Promise.all([loadBlockedList(), loadMyGames()]);
+    return res;
+  }
+
   async function loadBlockedList() {
     const { usernames } = await api('GET', '/api/block/list');
     const list = $('blockedList');
@@ -382,7 +436,9 @@
         if (!confirm(I18N.t('lobby.unblockConfirm', { username }))) return;
         try {
           await api('POST', '/api/block/remove', { username });
-          await loadBlockedList();
+          // Engel kalkınca, oyun geçmişindeki bu kullanıcı için "Engelle"
+          // düğmesi de (tekrar engellenebilsin diye) geri gelsin.
+          await Promise.all([loadBlockedList(), loadMyGames()]);
         } catch (err) {
           alert(I18N.tErr(err));
         }
@@ -393,6 +449,9 @@
     });
   }
 
+  // NOT (kullanıcı isteği): kullanıcı adını tek tek yazarak engelleme
+  // seçeneği burada AYNEN duruyor -- oyun geçmişindeki tek-tıkla engelleme
+  // düğmesi (loadMyGames) buna bir ALTERNATİF, onun yerini almıyor.
   $('blockForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = $('blockUsername').value.trim();
@@ -401,9 +460,8 @@
     $('blockError').textContent = '';
     $('blockSendBtn').disabled = true;
     try {
-      const res = await api('POST', '/api/block/add', { username });
+      const res = await blockUserRequest(username);
       $('blockForm').reset();
-      await loadBlockedList();
       alert(I18N.t('lobby.blockSuccess', { username: res.username }));
     } catch (err) {
       $('blockError').textContent = I18N.tErr(err);

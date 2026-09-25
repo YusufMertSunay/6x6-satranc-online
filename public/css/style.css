@@ -315,6 +315,12 @@ input:focus { outline: 2px solid var(--accent); }
 }
 .games-list li:last-child { border-bottom: none; }
 
+/* Oyun geçmişindeki her satırın sağındaki sonuç metni + (varsa) "Engelle"
+   düğmesi -- kullanıcı isteği: rakibi kullanıcı adını yazmadan, tek
+   düğmeyle engelleyebilsin (bkz. app.js: loadMyGames). */
+.game-history-right { display: flex; align-items: center; gap: 8px; }
+button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
+
 /* ---- Oyun sayfası ---- */
 .game-layout {
   display: flex;
@@ -780,5 +786,18 @@ input:focus { outline: 2px solid var(--accent); }
   }
   .analysis-board-row {
     gap: 6px;
+  }
+  /* Analiz sayfasına eklenen motor aç/kapa düğmesi (kullanıcı isteği), dil
+     geçiş düğmesiyle yan yana dar telefon ekranlarında (375px gibi) yatay
+     taşmaya yol açıyordu -- başlık ve sağdaki düğmeler artık gerektiğinde
+     alt alta sarılıyor, taşma yerine. */
+  header.topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .topbar-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 8px;
   }
 }
