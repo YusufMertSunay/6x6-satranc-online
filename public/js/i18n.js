@@ -48,7 +48,7 @@
       'auth.register': 'Kayıt Ol',
       'auth.usernamePlaceholder': 'Kullanıcı adı',
       'auth.passwordPlaceholder': 'Parola',
-      'auth.hint': 'Kullanıcı adı 3-24 karakter, parola en az 6 karakter olmalı.',
+      'auth.hint': 'Kullanıcı adı 3-24 karakter, parola en az 6 karakter olmalı. Kullanıcı adında boşluk olamaz.',
 
       // ---- Lobi ----
       'lobby.quickMatchTitle': 'Hızlı Eşleşme',
@@ -273,7 +273,7 @@
       'auth.register': 'Sign Up',
       'auth.usernamePlaceholder': 'Username',
       'auth.passwordPlaceholder': 'Password',
-      'auth.hint': 'Username must be 3-24 characters, password at least 6 characters.',
+      'auth.hint': 'Username must be 3-24 characters, password at least 6 characters. Username cannot contain spaces.',
 
       'lobby.quickMatchTitle': 'Quick Match',
       'lobby.findMatch': 'Find a Game',
