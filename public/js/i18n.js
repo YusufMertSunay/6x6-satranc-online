@@ -247,7 +247,7 @@
       'err.CHAT_EMPTY': 'Mesaj boş olamaz.',
       'err.CHAT_TOO_LONG': 'Mesaj çok uzun (en fazla 500 karakter).',
       'err.CHAT_PLAYER_RATE_LIMIT': 'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.',
-      'err.CHAT_SPECTATOR_RATE_LIMIT': 'Başka biri araya mesaj yazana kadar üst üste en fazla 3 mesaj gönderebilirsin.',
+      'err.CHAT_SPECTATOR_RATE_LIMIT': 'Başka biri araya mesaj yazana kadar üst üste en fazla 2 mesaj gönderebilirsin.',
       'err.REMATCH_BLOCKED_FOR_GAME': 'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
@@ -498,7 +498,7 @@
       'err.CHAT_EMPTY': "Message can't be empty.",
       'err.CHAT_TOO_LONG': 'Message is too long (500 characters max).',
       'err.CHAT_PLAYER_RATE_LIMIT': "You can send at most 2 messages in a row until your opponent replies.",
-      'err.CHAT_SPECTATOR_RATE_LIMIT': "You can send at most 3 messages in a row until someone else posts.",
+      'err.CHAT_SPECTATOR_RATE_LIMIT': "You can send at most 2 messages in a row until someone else posts.",
       'err.REMATCH_BLOCKED_FOR_GAME': "You were declined twice in a row in this game, so you can no longer offer this opponent a rematch for this specific game.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----

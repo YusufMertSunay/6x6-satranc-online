@@ -135,7 +135,7 @@ const ERROR_CODES = {
   'Mesaj boş olamaz.': 'CHAT_EMPTY',
   'Mesaj çok uzun (en fazla 500 karakter).': 'CHAT_TOO_LONG',
   'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.': 'CHAT_PLAYER_RATE_LIMIT',
-  'Başka biri araya mesaj yazana kadar üst üste en fazla 3 mesaj gönderebilirsin.': 'CHAT_SPECTATOR_RATE_LIMIT',
+  'Başka biri araya mesaj yazana kadar üst üste en fazla 2 mesaj gönderebilirsin.': 'CHAT_SPECTATOR_RATE_LIMIT',
   'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.': 'REMATCH_BLOCKED_FOR_GAME',
 };
 

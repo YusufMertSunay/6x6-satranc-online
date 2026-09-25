@@ -204,7 +204,7 @@
       const secForm = $('secondaryChatForm');
       const secInput = $('secondaryChatInput');
       const secSendBtn = secForm ? secForm.querySelector('button') : null;
-      updateRateLimitUi(secInput, secSendBtn, $('secondaryChatHint'), secondaryMessages, 3, 'chat.spectatorRateLimitHint');
+      updateRateLimitUi(secInput, secSendBtn, $('secondaryChatHint'), secondaryMessages, 2, 'chat.spectatorRateLimitHint');
     } else if (secondaryBox) {
       secondaryBox.classList.add('hidden');
     }

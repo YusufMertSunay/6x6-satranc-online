@@ -97,8 +97,13 @@
     </div>
 
     <div class="action-row" id="normalActionRow">
-      <button class="secondary" id="offerDrawBtn" data-i18n="game.offerDraw">Beraberlik Teklif Et</button>
-      <button class="danger" id="resignBtn" data-i18n="game.resign">Teslim Ol</button>
+      <!-- Kullanıcı isteği: sayfa yüklenirken (JS henüz init() bitirmeden)
+           bu düğmelerin kısa bir an etkin görünmesini önlemek için
+           varsayılan olarak devre dışı -- game.js: renderActionButtons()
+           gerçek durumu (siyah ilk hamlesini yapana kadar devre dışı,
+           sonra etkin) belirleyip günceller. -->
+      <button class="secondary" id="offerDrawBtn" disabled data-i18n="game.offerDraw">Beraberlik Teklif Et</button>
+      <button class="danger" id="resignBtn" disabled data-i18n="game.resign">Teslim Ol</button>
     </div>
 
     <!-- Kullanıcı isteği: daha önce eklenen komple engelleme özelliği, oyun
