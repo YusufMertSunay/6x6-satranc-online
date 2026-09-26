@@ -587,13 +587,38 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 
 /* Şah çekilen tarafın kralının bulunduğu kare — lichess'teki gibi ortadan
    dışa doğru solan kırmızı bir parlama. Hem oyun tahtasında (game.js) hem
-   analiz tahtasında (analysis.js) aynı sınıf kullanılıyor. */
+   analiz tahtasında (analysis.js) aynı sınıf kullanılıyor.
+   Kullanıcı isteği: bu zaten kızarıyordu ama parlaklığı artırıldı -- merkez
+   artık tam opak (1.0) ve orta/dış katmanların opaklığı da yükseltildi. */
 .square.in-check {
   background-image: radial-gradient(ellipse at center,
-    rgba(255, 0, 0, 0.9) 0%,
-    rgba(231, 0, 0, 0.75) 25%,
-    rgba(169, 0, 0, 0.4) 50%,
-    rgba(158, 0, 0, 0) 80%);
+    rgba(255, 0, 0, 1) 0%,
+    rgba(255, 0, 0, 0.95) 20%,
+    rgba(235, 0, 0, 0.65) 45%,
+    rgba(200, 0, 0, 0) 78%);
+}
+
+/* Ön-hamle (premove) -- lichess'teki gibi: sıra rakipteyken bir taş seçilip
+   bir hedef kare belirlenince, ikisi de turuncu bir vurgu ile işaretlenir;
+   rakip hamlesini yapar yapmaz otomatik olarak GERÇEK bir hamle olarak
+   denenir (bkz. game.js: tryExecutePremove). Seçim aşamasındaki aday
+   hedefler de (henüz kuyruğa alınmadan) aynı turuncu tonda küçük bir
+   noktayla gösterilir -- ::before kullanıyoruz ki .selected/.legal-dest'in
+   kullandığı ::after ile hiçbir zaman çakışmasın. */
+.square.premove-square::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 140, 0, 0.55);
+}
+
+.square.premove-dest::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 140, 0, 0.55);
 }
 
 /* Sürükleme sırasında farenin/parmağın altında gezen "hayalet" taş görseli.

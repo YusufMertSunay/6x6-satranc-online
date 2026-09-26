@@ -63,6 +63,17 @@
   let opponentIsBlocked = false;
   let selected = null; // 'a1' gibi
   let legalMoves = []; // sıradaki oyuncu için tüm yasal hamleler (UCI)
+  // ---------------- Ön-hamle (premove) durumu ----------------
+  // Kullanıcı isteği: lichess'teki gibi, sıra RAKİPTEYKEN de kendi taşımızı
+  // seçip bir hedef kare belirleyebiliyoruz -- bu, sunucuya HEMEN
+  // gönderilmiyor, sadece burada (istemcide) kuyruğa alınıyor. Rakip
+  // hamlesini yapıp sıra bize geçer geçmez (bkz. SSE 'move' olayı ->
+  // tryExecutePremove) otomatik olarak GERÇEK bir hamle olarak sunucuya
+  // gönderiliyor; sunucu o an geçersiz bulursa (pozisyon değiştiği için
+  // artık yasal değilse) sessizce iptal ediliyor, tıpkı lichess'te olduğu
+  // gibi -- kullanıcıya hata gösterilmiyor.
+  let premove = null; // { from: 'd2', to: 'd4' } | null
+  let premoveDests = []; // seçili taş için İSTEMCİ TARAFINDA hesaplanan aday hedefler ([{r,c}, ...])
   let clockTimer = null;
   let sse = null;
   // Kullanıcı KENDİSİ "Oyunu İptal Et" butonuna bastığında, sunucudan gelen
@@ -142,6 +153,88 @@
       }
     }
     return null;
+  }
+
+  function inBounds(r, c) { return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE; }
+  function pieceColorOf(piece) { return piece === piece.toUpperCase() ? 'white' : 'black'; }
+
+  // Ön-hamle (premove) hedef karelerini hesaplar -- sunucuya HİÇ sormadan,
+  // sadece o taşın KENDİ hareket ŞEKLİNİ (şah çekilip çekilmeyeceğini, çengel
+  // vb. hiç hesaba katmadan) baz alıyoruz. Sıra rakipteyken sunucudan "benim
+  // için" yasal hamle listesi isteyemeyiz çünkü rakip henüz oynamadı, pozisyon
+  // belli değil -- bu yüzden lichess'in de yaptığı gibi bu sadece bir TAHMİN;
+  // gerçek yasallık kontrolü rakip oynadıktan SONRA, normal hamle gönderme
+  // yoluyla (sunucuda) yapılıyor (bkz. tryExecutePremove).
+  //
+  // NOT: Bu varyantta sadece vezir tarafı rok mümkün (bkz. lib/gameManager.js
+  // START_FEN'deki "Qq" bayrağı) -- rok, ön-hamle olarak DESTEKLENMİYOR (nadir
+  // bir durum; rok yapmak isteyen oyuncu rakibin hamlesini bekleyip normal
+  // şekilde oynayabilir).
+  function computePremoveDestinations(grid, r, c) {
+    const piece = grid[r][c];
+    if (!piece) return [];
+    const color = pieceColorOf(piece);
+    const letter = piece.toLowerCase();
+    const dests = [];
+
+    const tryStep = (rr, cc) => {
+      if (!inBounds(rr, cc)) return;
+      const target = grid[rr][cc];
+      if (target && pieceColorOf(target) === color) return;
+      dests.push({ r: rr, c: cc });
+    };
+
+    const slide = (dirs) => {
+      for (const [dr, dc] of dirs) {
+        let rr = r + dr, cc = c + dc;
+        while (inBounds(rr, cc)) {
+          const target = grid[rr][cc];
+          if (target && pieceColorOf(target) === color) break;
+          dests.push({ r: rr, c: cc });
+          if (target) break; // rakip taşı aldıktan sonra o yönde daha ileri gidilemez
+          rr += dr; cc += dc;
+        }
+      }
+    };
+
+    const ROOK_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const BISHOP_DIRS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+    if (letter === 'r') slide(ROOK_DIRS);
+    else if (letter === 'b') slide(BISHOP_DIRS);
+    else if (letter === 'q') slide(ROOK_DIRS.concat(BISHOP_DIRS));
+    else if (letter === 'n') {
+      for (const [dr, dc] of [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2]]) {
+        tryStep(r + dr, c + dc);
+      }
+    } else if (letter === 'k') {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          tryStep(r + dr, c + dc);
+        }
+      }
+    } else if (letter === 'p') {
+      const dir = color === 'white' ? -1 : 1;
+      const startRow = color === 'white' ? 4 : 1;
+      if (inBounds(r + dir, c) && !grid[r + dir][c]) {
+        dests.push({ r: r + dir, c });
+        if (r === startRow && inBounds(r + 2 * dir, c) && !grid[r + 2 * dir][c]) {
+          dests.push({ r: r + 2 * dir, c });
+        }
+      }
+      // Çapraz kareler: şu an boş olsalar bile aday olarak gösteriliyor --
+      // rakip hamlesinden sonra oraya bir taş gelebilir (ya da bu bir geçerken
+      // alma/en passant olabilir). Sadece kendi taşımız oradaysa hariç tutuyoruz.
+      for (const dc of [-1, 1]) {
+        const cc = c + dc;
+        if (!inBounds(r + dir, cc)) continue;
+        const target = grid[r + dir][cc];
+        if (target && pieceColorOf(target) === color) continue;
+        dests.push({ r: r + dir, c: cc });
+      }
+    }
+    return dests;
   }
 
   // ---------------- Tahta çizimi ----------------
@@ -225,8 +318,16 @@
         el.classList.toggle('last-move', sq === lastFrom || sq === lastTo);
         el.classList.toggle('in-check', !!checkedKing && checkedKing.r === r && checkedKing.c === c);
 
-        const isLegalDest = selected && legalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
+        const isLegalDest = myTurn() && selected && legalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
         el.classList.toggle('legal-dest', !!isLegalDest);
+
+        // Ön-hamle (premove) görselleri: aday hedef kareler (henüz kuyruğa
+        // alınmamış, seçim aşamasında) VE zaten kuyruğa alınmış tam bir
+        // ön-hamlenin kaynak/hedef karesi -- bkz. handlePremoveClick /
+        // onDocumentPointerUp / tryExecutePremove.
+        const isPremoveDest = !myTurn() && selected && premoveDests.some(d => d.r === r && d.c === c);
+        el.classList.toggle('premove-dest', !!isPremoveDest);
+        el.classList.toggle('premove-square', !!premove && (sq === premove.from || sq === premove.to));
       }
     }
   }
@@ -253,14 +354,52 @@
     return (isWhitePiece && myColor === 'white') || (!isWhitePiece && myColor === 'black');
   }
 
+  // Sıra RAKİPTEYKEN yapılan tıklamalar buraya düşer -- gerçek bir hamle
+  // yerine bir ön-hamle (premove) seçiliyor/kuyruğa alınıyor/iptal ediliyor.
+  function handlePremoveClick(r, c, sq, piece, grid) {
+    // Kuyrukta zaten tam bir ön-hamle varsa ve tıklanan kare onun kaynağı ya
+    // da hedefiyse: kullanıcı bunu iptal etmek istiyor demektir.
+    if (premove && (sq === premove.from || sq === premove.to)) {
+      premove = null;
+      selected = null;
+      premoveDests = [];
+      renderBoard();
+      return;
+    }
+
+    if (pieceBelongsToMe(piece)) {
+      // Yeni bir taş seçmek, varsa kuyruktaki eski ön-hamleyi iptal eder.
+      premove = null;
+      selected = sq;
+      premoveDests = computePremoveDestinations(grid, r, c);
+      renderBoard();
+      return;
+    }
+
+    if (selected) {
+      const isDest = premoveDests.some(d => squareName(d.r, d.c) === sq);
+      if (isDest) premove = { from: selected, to: sq };
+      selected = null;
+      premoveDests = [];
+      renderBoard();
+      return;
+    }
+    // Seçili taş yokken alakasız bir kareye tıklandı -- hiçbir şey yapılmaz.
+  }
+
   async function onSquareClick(r, c) {
     if (!state || state.status !== 'active') return;
     const sq = squareName(r, c);
     const grid = fenToGrid(state.currentFen);
     const piece = grid[r][c];
 
+    if (!myTurn()) {
+      handlePremoveClick(r, c, sq, piece, grid);
+      return;
+    }
+
     if (!selected) {
-      if (myTurn() && pieceBelongsToMe(piece)) {
+      if (pieceBelongsToMe(piece)) {
         selected = sq;
         renderBoard();
       }
@@ -346,10 +485,14 @@
     // gibi algılanabiliyordu.
     if (e.button !== 0) return;
     if (!state || state.status !== 'active') return;
-    if (!myTurn()) return;
     const grid = fenToGrid(state.currentFen);
     const piece = grid[r][c];
     if (!pieceBelongsToMe(piece)) return;
+    // Kullanıcı isteği (ön-hamle/premove): sıra rakipteyken de kendi
+    // taşımızı sürüklemeye BAŞLAYABİLİYORUZ (bkz. startDragging/
+    // onDocumentPointerUp) -- bu bir "ön-hamle sürüklemesi" sayılıyor. Yeni
+    // bir taş tutmaya başlamak, varsa kuyruktaki eski ön-hamleyi iptal eder.
+    if (!myTurn() && premove) premove = null;
     // Henüz "sürükleme" başlatmıyoruz — sadece olası bir sürüklemenin
     // başlangıç noktasını kaydediyoruz. Eşik aşılmazsa bu, native 'click'
     // olayına bırakılan düz bir tıklama olarak kalacak.
@@ -377,6 +520,10 @@
   function startDragging(e) {
     dragState.dragging = true;
     selected = dragState.fromSq;
+    if (!myTurn()) {
+      const grid = fenToGrid(state.currentFen);
+      premoveDests = computePremoveDestinations(grid, dragState.fromR, dragState.fromC);
+    }
     const rect = squareEls[dragState.fromR][dragState.fromC].getBoundingClientRect();
     const ghost = document.createElement('img');
     ghost.className = 'drag-ghost';
@@ -429,6 +576,9 @@
     setTimeout(() => { suppressNextClick = false; }, 0);
 
     const fromSq = dragState.fromSq;
+    const fromR = dragState.fromR;
+    const fromC = dragState.fromC;
+    const wasPremoveDrag = !myTurn();
     let dropSq = null;
     const targetEl = document.elementFromPoint(e.clientX, e.clientY);
     const squareEl = targetEl && targetEl.closest ? targetEl.closest('.square') : null;
@@ -440,11 +590,25 @@
 
     cleanupDrag();
     selected = null;
+    premoveDests = [];
 
     // Alakasız bir kareye ya da tahtanın dışına bırakıldıysa (dropSq yok)
     // veya kendi karesine bırakıldıysa: hamleyi HİÇ oynatma, taş eski
     // yerine geri dönsün (renderBoard yeniden gerçek durumu çizecek).
     if (!dropSq || dropSq === fromSq) {
+      renderBoard();
+      return;
+    }
+
+    // Sıra rakipteyken sürüklenen bir taş: bu gerçek bir hamle değil, bir
+    // ÖN-HAMLE (premove) kuyruğa alma girişimi (bkz. computePremoveDestinations
+    // ve tryExecutePremove).
+    if (wasPremoveDrag) {
+      const grid = fenToGrid(state.currentFen);
+      const dests = computePremoveDestinations(grid, fromR, fromC);
+      if (dests.some(d => squareName(d.r, d.c) === dropSq)) {
+        premove = { from: fromSq, to: dropSq };
+      }
       renderBoard();
       return;
     }
@@ -472,6 +636,7 @@
   document.addEventListener('pointercancel', () => {
     cleanupDrag();
     selected = null;
+    premoveDests = [];
     if (state) renderBoard();
   });
 
@@ -972,7 +1137,40 @@
     if (normalRow) normalRow.classList.toggle('hidden', canCancel);
   }
 
+  // Rakip oynadıktan sonra (SSE 'move' olayı, bkz. connectSse) sıra bize
+  // geçtiyse VE kuyrukta bir ön-hamle varsa: bunu şimdi GERÇEK bir hamle
+  // olarak sunucuya göndermeyi deniyoruz. Sunucunun taze legal-moves
+  // listesinde artık yoksa (pozisyon, ön-hamlenin varsaydığından farklı
+  // şekilde değiştiyse) sessizce vazgeçiyoruz -- lichess'teki gibi
+  // kullanıcıya hata gösterilmiyor, oyuncu normal şekilde seçim yapmaya
+  // devam edebiliyor.
+  async function tryExecutePremove() {
+    const pm = premove;
+    premove = null;
+    if (!pm) return;
+    const matches = legalMoves.filter(m => m.startsWith(pm.from) && m.slice(2, 4) === pm.to);
+    if (matches.length === 0) {
+      renderBoard();
+      return;
+    }
+    if (matches.length === 1) {
+      await submitMove(pm.from, pm.to, null);
+    } else {
+      const options = matches.map(m => m.slice(4));
+      showPromotionModal(options, async (choice) => {
+        await submitMove(pm.from, pm.to, choice);
+      });
+    }
+  }
+
   function renderAll() {
+    // Oyun artık aktif değilse (mat/teslim/berabere/iptal vb.) kuyrukta
+    // kalmış olabilecek bir ön-hamleyi/seçimi de temizleyelim.
+    if (state.status !== 'active' && (premove || selected || premoveDests.length)) {
+      premove = null;
+      selected = null;
+      premoveDests = [];
+    }
     renderBoard();
     renderStatus();
     renderUnrankedTag();
@@ -1085,8 +1283,15 @@
       const data = JSON.parse(e.data);
       if (data.id !== gameId) return;
       mergeState(data);
+      // Bu olay, RAKİBİN oynadığı bir hamleyse pozisyon değişti -- eski
+      // seçim/ön-hamle aday kareleri artık geçersiz sayılabilir; sıra
+      // gerçekten bize geçtiyse tryExecutePremove zaten kuyruktaki
+      // ön-hamleyi (varsa) kendi başına deneyip temizleyecek.
+      selected = null;
+      premoveDests = [];
       await refreshLegalMoves();
       renderAll();
+      if (myTurn() && premove) await tryExecutePremove();
     });
     sse.addEventListener('game_over', async (e) => {
       const data = JSON.parse(e.data);
