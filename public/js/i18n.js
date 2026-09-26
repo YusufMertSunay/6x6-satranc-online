@@ -81,6 +81,19 @@
       'lobby.thRating': 'Puan',
       'lobby.thRecord': 'G/M/B',
 
+      // ---- Liderlik tablosu ve son oyunlar sayfalama (kullanıcı isteği:
+      // her ikisi de sonsuza kadar büyümesin, en fazla 10'ar 10'ar gösterilsin) ----
+      'lobby.lbFirstBtn': 'İlk 10',
+      'lobby.lbLastBtn': 'Son 10',
+      'lobby.lbUpBtn': '▲ Yukarı',
+      'lobby.lbDownBtn': '▼ Aşağı',
+      'lobby.gamesFirstBtn': 'İlk Oyunlar',
+      'lobby.gamesLastBtn': 'Son Oyunlar',
+      'lobby.gamesNewerBtn': '▲ Daha Yeni',
+      'lobby.gamesOlderBtn': '▼ Daha Eski',
+      'lobby.paginationRange': '{start}-{end} / {total}',
+      'lobby.paginationEmpty': '0 / 0',
+
       // ---- Kullanıcı engelleme (kullanıcı isteği) ----
       'lobby.blockTitle': 'Kullanıcı Engelle',
       'lobby.blockUsernamePlaceholder': 'Kullanıcı adı',
@@ -349,6 +362,18 @@
       'lobby.thUser': 'User',
       'lobby.thRating': 'Rating',
       'lobby.thRecord': 'W/L/D',
+
+      // ---- Leaderboard and recent-games pagination ----
+      'lobby.lbFirstBtn': 'Top 10',
+      'lobby.lbLastBtn': 'Bottom 10',
+      'lobby.lbUpBtn': '▲ Up',
+      'lobby.lbDownBtn': '▼ Down',
+      'lobby.gamesFirstBtn': 'First Games',
+      'lobby.gamesLastBtn': 'Most Recent',
+      'lobby.gamesNewerBtn': '▲ Newer',
+      'lobby.gamesOlderBtn': '▼ Older',
+      'lobby.paginationRange': '{start}-{end} / {total}',
+      'lobby.paginationEmpty': '0 / 0',
 
       // ---- Blocking users ----
       'lobby.blockTitle': 'Block a User',

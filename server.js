@@ -581,14 +581,6 @@ async function handleApi(req, res, pathname, url) {
     return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, language: user.language || 'tr' });
   }
 
-  if (pathname === '/api/leaderboard' && req.method === 'GET') {
-    // Elo puanı kategoriye göre AYRI olduğu için liderlik tablosu da tek bir
-    // kategoriye göre sıralanıyor (?category=bullet|blitz|rapid|classical).
-    const requestedCategory = url.searchParams.get('category');
-    const category = RATING_CATEGORIES.includes(requestedCategory) ? requestedCategory : 'bullet';
-    return sendJson(res, 200, { category, leaderboard: store.leaderboard(category, 20) });
-  }
-
   if (pathname === '/api/time-controls' && req.method === 'GET') {
     return sendJson(res, 200, { timeControls: gameManager.timeControls() });
   }
@@ -596,6 +588,36 @@ async function handleApi(req, res, pathname, url) {
   // ---- Aşağıdakiler için giriş yapılmış olmak gerekiyor ----
   const user = getUserFromRequest(req);
   if (!user) return errJson(res, 401, 'Giriş yapmalısın.');
+
+  if (pathname === '/api/leaderboard' && req.method === 'GET') {
+    // Elo puanı kategoriye göre AYRI olduğu için liderlik tablosu da tek bir
+    // kategoriye göre sıralanıyor (?category=bullet|blitz|rapid|classical).
+    const requestedCategory = url.searchParams.get('category');
+    const category = RATING_CATEGORIES.includes(requestedCategory) ? requestedCategory : 'bullet';
+
+    // Kullanıcı isteği: tablo artık kullanıcı sayısı arttıkça sonsuza kadar
+    // uzamasın diye TÜMÜYLE değil, 10'luk (varsayılan) sayfalar halinde
+    // gösteriliyor. "offset" verilmezse (ön yüzün ilk açılışı / kategori
+    // sekmesi değişimi), varsayılan olarak GİRİŞ YAPMIŞ KULLANICININ KENDİ
+    // SIRASINI İÇEREN sayfa hesaplanıp o gösterilir (örn. 37. sıradaysa
+    // 31-40 arası). "İlk 10 / Son 10 / Yukarı / Aşağı" düğmeleri ise her
+    // zaman AÇIKÇA bir offset gönderir -- bu durumda merkezleme UYGULANMAZ,
+    // istenen sayfa aynen döndürülür.
+    const limitParam = parseInt(url.searchParams.get('limit'), 10);
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 10;
+    const offsetParam = url.searchParams.get('offset');
+    let offset;
+    if (offsetParam !== null) {
+      const parsed = parseInt(offsetParam, 10);
+      offset = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    } else {
+      const myRank = store.rankOf(category, user.id);
+      offset = myRank ? Math.floor((myRank - 1) / limit) * limit : 0;
+    }
+
+    const page = store.leaderboard(category, offset, limit);
+    return sendJson(res, 200, { category, total: page.total, offset: page.offset, limit, leaderboard: page.entries });
+  }
 
   if (pathname === '/api/logout' && req.method === 'POST') {
     const cookies = parseCookies(req);
@@ -626,7 +648,16 @@ async function handleApi(req, res, pathname, url) {
   }
 
   if (pathname === '/api/my-games' && req.method === 'GET') {
-    return sendJson(res, 200, { games: store.recentGamesForUser(user.id, 20) });
+    // Kullanıcı isteği: "Son Oyunların" listesi de artık TÜMÜYLE değil,
+    // varsayılan olarak en yeni 10 oyun (offset=0) döndürülüyor; ön yüzün
+    // "İlk Oyunlar / Son Oyunlar / daha eski / daha yeni" düğmeleri kendi
+    // offset'ini açıkça göndererek sayfalar arasında gezinir.
+    const limitParam = parseInt(url.searchParams.get('limit'), 10);
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 10;
+    const offsetParam = parseInt(url.searchParams.get('offset'), 10);
+    const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
+    const page = store.recentGamesForUser(user.id, offset, limit);
+    return sendJson(res, 200, { games: page.entries, total: page.total, offset: page.offset, limit });
   }
 
   if (pathname === '/api/my-active-game' && req.method === 'GET') {

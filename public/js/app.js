@@ -78,6 +78,20 @@
   let inQueue = false;
   let leaderboardCategory = 'bullet';
 
+  // ---- Liderlik tablosu / son oyunlar sayfalama (kullanıcı isteği) ----
+  // Her ikisi de sonsuza kadar büyümesin diye artık sunucudan HER ZAMAN en
+  // fazla PAGE_SIZE kadar satır isteniyor (bkz. server.js: /api/leaderboard,
+  // /api/my-games). "offset" gönderilmezse sunucu akıllı bir varsayılan
+  // seçiyor (liderlik tablosunda kullanıcının kendi sırasını içeren dilim,
+  // son oyunlarda ise en yeni oyunlar); "leaderboardOffset"/"myGamesOffset"
+  // burada `null` iken bu varsayılanı kullanıyoruz, bir sayı olduğunda ise
+  // (düğmelerden biri tıklandığında) TAM O sayfayı istiyoruz.
+  const PAGE_SIZE = 10;
+  let leaderboardOffset = null;
+  let leaderboardTotal = 0;
+  let myGamesOffset = null;
+  let myGamesTotal = 0;
+
   // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — her biri 1500'den
   // başlıyor. Her kategori zaten kendi satırında gösterildiği için üstte
@@ -161,16 +175,42 @@
     selectedTc = activeKey;
   }
 
-  async function loadLeaderboard(category) {
-    if (category) leaderboardCategory = category;
-    const { leaderboard } = await api('GET', '/api/leaderboard?category=' + leaderboardCategory);
+  // offset === null  -> sunucudan varsayılan (kullanıcının kendi sırasını
+  //                     içeren) dilimi iste.
+  // offset === sayı  -> TAM o dilimi iste (düğmelerden biri tıklandığında).
+  async function loadLeaderboard(category, offset) {
+    if (category) { leaderboardCategory = category; leaderboardOffset = null; }
+    else if (offset !== undefined) leaderboardOffset = offset;
+    let path = '/api/leaderboard?category=' + leaderboardCategory + '&limit=' + PAGE_SIZE;
+    if (leaderboardOffset !== null) path += '&offset=' + leaderboardOffset;
+    const data = await api('GET', path);
+    // Sunucu, gönderdiğimiz offset'i sınırlara göre düzeltmiş (clamp etmiş)
+    // olabilir (ör. çok büyük bir offset istendiğinde) -- gerçek değeri
+    // kendisinden alıp burada senkron tutuyoruz ki düğmelerin
+    // aktif/pasif durumu ve "31-40 / 214" metni hep DOĞRU sayfayı yansıtsın.
+    leaderboardOffset = data.offset;
+    leaderboardTotal = data.total;
     const body = $('leaderboardBody');
     body.innerHTML = '';
-    leaderboard.forEach((u, i) => {
+    data.leaderboard.forEach((u) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${i + 1}</td><td>${escapeHtml(u.username)}</td><td>${u.rating}</td><td>${u.wins}/${u.losses}/${u.draws}</td>`;
+      tr.innerHTML = `<td>${u.rank}</td><td>${escapeHtml(u.username)}</td><td>${u.rating}</td><td>${u.wins}/${u.losses}/${u.draws}</td>`;
       body.appendChild(tr);
     });
+    renderLeaderboardPagination();
+  }
+
+  function renderLeaderboardPagination() {
+    const total = leaderboardTotal;
+    const offset = leaderboardOffset;
+    const lastOffset = total > PAGE_SIZE ? total - PAGE_SIZE : 0;
+    const start = total === 0 ? 0 : offset + 1;
+    const end = Math.min(offset + PAGE_SIZE, total);
+    $('lbRangeText').textContent = total === 0 ? I18N.t('lobby.paginationEmpty') : I18N.t('lobby.paginationRange', { start, end, total });
+    $('lbFirstBtn').disabled = offset <= 0;
+    $('lbUpBtn').disabled = offset <= 0;
+    $('lbDownBtn').disabled = offset >= lastOffset;
+    $('lbLastBtn').disabled = offset >= lastOffset;
   }
 
   $('leaderboardTabs').addEventListener('click', (e) => {
@@ -181,24 +221,45 @@
     loadLeaderboard(btn.dataset.category);
   });
 
-  async function loadMyGames() {
+  $('lbFirstBtn').addEventListener('click', () => loadLeaderboard(null, 0));
+  $('lbUpBtn').addEventListener('click', () => loadLeaderboard(null, Math.max(0, leaderboardOffset - PAGE_SIZE)));
+  $('lbDownBtn').addEventListener('click', () => {
+    const lastOffset = leaderboardTotal > PAGE_SIZE ? leaderboardTotal - PAGE_SIZE : 0;
+    loadLeaderboard(null, Math.min(lastOffset, leaderboardOffset + PAGE_SIZE));
+  });
+  $('lbLastBtn').addEventListener('click', () => {
+    const lastOffset = leaderboardTotal > PAGE_SIZE ? leaderboardTotal - PAGE_SIZE : 0;
+    loadLeaderboard(null, lastOffset);
+  });
+
+  // offset === undefined -> mevcut sayfayı (veya hiç yüklenmediyse
+  //                          varsayılan/en yeni 10 oyunu) yeniden çiz.
+  // offset === sayı       -> TAM o dilimi iste (düğmelerden biri tıklandığında).
+  async function loadMyGames(offset) {
+    if (offset !== undefined) myGamesOffset = offset;
     // Oyun geçmişindeki rakiplerin hangilerinin ZATEN engellenmiş olduğunu
     // bilmemiz gerekiyor -- engellenmiş bir rakibin yanında tekrar "Engelle"
     // düğmesi göstermiyoruz (bkz. aşağısı). /api/block/list ucuz bir çağrı
     // olduğu için burada ayrıca (loadBlockedList'ten bağımsız) çekiyoruz --
     // böylece bu iki fonksiyonun çağrılma sırası önemli olmuyor.
-    const [{ games }, { usernames: blockedUsernames }] = await Promise.all([
-      api('GET', '/api/my-games'),
+    let path = '/api/my-games?limit=' + PAGE_SIZE;
+    if (myGamesOffset !== null && myGamesOffset !== undefined) path += '&offset=' + myGamesOffset;
+    const [data, { usernames: blockedUsernames }] = await Promise.all([
+      api('GET', path),
       api('GET', '/api/block/list'),
     ]);
+    const games = data.games;
+    myGamesOffset = data.offset;
+    myGamesTotal = data.total;
     const blockedSet = new Set(blockedUsernames);
     const list = $('myGamesList');
     list.innerHTML = '';
     if (!games.length) {
       list.innerHTML = `<li class="hint-text">${I18N.t('lobby.noGamesYet')}</li>`;
+      renderMyGamesPagination();
       return;
     }
-    games.slice(0, 10).forEach(g => {
+    games.forEach(g => {
       const li = document.createElement('li');
       const meWhite = g.whiteId === currentUser.id;
       const oppName = meWhite ? g.blackUsername : g.whiteUsername;
@@ -242,7 +303,37 @@
       li.addEventListener('click', () => { window.location.href = '/game.html?id=' + g.id; });
       list.appendChild(li);
     });
+    renderMyGamesPagination();
   }
+
+  // Oyunlar en yeniden en eskiye sıralı geldiği için (bkz. store.js:
+  // recentGamesForUser) offset=0 HER ZAMAN "en son oyunlar", en büyük offset
+  // ise "en eski oyunlar" demek -- yani "İlk Oyunlar" (en eski) düğmesi
+  // BÜYÜK offset'e, "Son Oyunlar" (en yeni) düğmesi offset=0'a gider ve
+  // "Daha Eski" ileri (+PAGE_SIZE), "Daha Yeni" ise geri (-PAGE_SIZE) sarar.
+  function renderMyGamesPagination() {
+    const total = myGamesTotal;
+    const offset = myGamesOffset;
+    const lastOffset = total > PAGE_SIZE ? total - PAGE_SIZE : 0;
+    const start = total === 0 ? 0 : offset + 1;
+    const end = Math.min(offset + PAGE_SIZE, total);
+    $('gamesRangeText').textContent = total === 0 ? I18N.t('lobby.paginationEmpty') : I18N.t('lobby.paginationRange', { start, end, total });
+    $('gamesLastBtn').disabled = offset <= 0;
+    $('gamesNewerBtn').disabled = offset <= 0;
+    $('gamesOlderBtn').disabled = offset >= lastOffset;
+    $('gamesFirstBtn').disabled = offset >= lastOffset;
+  }
+
+  $('gamesLastBtn').addEventListener('click', () => loadMyGames(0));
+  $('gamesNewerBtn').addEventListener('click', () => loadMyGames(Math.max(0, myGamesOffset - PAGE_SIZE)));
+  $('gamesOlderBtn').addEventListener('click', () => {
+    const lastOffset = myGamesTotal > PAGE_SIZE ? myGamesTotal - PAGE_SIZE : 0;
+    loadMyGames(Math.min(lastOffset, myGamesOffset + PAGE_SIZE));
+  });
+  $('gamesFirstBtn').addEventListener('click', () => {
+    const lastOffset = myGamesTotal > PAGE_SIZE ? myGamesTotal - PAGE_SIZE : 0;
+    loadMyGames(lastOffset);
+  });
 
   function describeResult(g, meWhite) {
     if (g.winnerColor === null) return I18N.t('result.draw');

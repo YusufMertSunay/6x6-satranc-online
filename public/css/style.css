@@ -321,6 +321,28 @@ input:focus { outline: 2px solid var(--accent); }
 .game-history-right { display: flex; align-items: center; gap: 8px; }
 button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 
+/* Kullanıcı isteği: liderlik tablosu ve son oyunların listesi sonsuza kadar
+   uzamasın -- her ikisi de en fazla 10 satır gösterir ve altlarındaki bu
+   düğme sırasıyla ilk/son 10'a veya 10'ar 10'ar ileri/geri gidilir. */
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.pagination-row .pagination-range {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 64px;
+  text-align: center;
+}
+.pagination-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ---- Oyun sayfası ---- */
 .game-layout {
   display: flex;

@@ -134,11 +134,34 @@
         </tr></thead>
         <tbody id="leaderboardBody"></tbody>
       </table>
+      <!-- Kullanıcı isteği: liderlik tablosu sonsuza kadar büyümesin -- her
+           zaman en fazla 10 kişi gösterilir. Varsayılan olarak kullanıcının
+           KENDİ sırasını içeren 10'luk dilim açılır (bkz. app.js:
+           loadLeaderboard / server.js: /api/leaderboard -- offset
+           belirtilmezse sunucu bunu otomatik hesaplıyor). Bu düğmelerle
+           ilk 10'a, son 10'a veya 10'ar 10'ar yukarı/aşağı gidilebilir. -->
+      <div class="pagination-row" id="leaderboardPagination">
+        <button type="button" class="secondary tiny" id="lbFirstBtn" data-i18n="lobby.lbFirstBtn">İlk 10</button>
+        <button type="button" class="secondary tiny" id="lbUpBtn" data-i18n="lobby.lbUpBtn">▲ Yukarı</button>
+        <span class="pagination-range" id="lbRangeText"></span>
+        <button type="button" class="secondary tiny" id="lbDownBtn" data-i18n="lobby.lbDownBtn">▼ Aşağı</button>
+        <button type="button" class="secondary tiny" id="lbLastBtn" data-i18n="lobby.lbLastBtn">Son 10</button>
+      </div>
     </div>
 
     <div class="card" style="grid-column: 1 / -1">
       <h3 data-i18n="lobby.recentGamesTitle">Son Oyunların</h3>
       <ul class="games-list" id="myGamesList"><li class="hint-text" data-i18n="lobby.noGamesYet">Henüz oyun yok.</li></ul>
+      <!-- Kullanıcı isteği: varsayılan olarak son 10 oyun görünür; bu
+           düğmelerle ilk (en eski) oyunlara, en son oyunlara veya 10'ar
+           10'ar eskiye/yeniye doğru gidilebilir (bkz. app.js: loadMyGames). -->
+      <div class="pagination-row" id="myGamesPagination">
+        <button type="button" class="secondary tiny" id="gamesFirstBtn" data-i18n="lobby.gamesFirstBtn">İlk Oyunlar</button>
+        <button type="button" class="secondary tiny" id="gamesNewerBtn" data-i18n="lobby.gamesNewerBtn">▲ Daha Yeni</button>
+        <span class="pagination-range" id="gamesRangeText"></span>
+        <button type="button" class="secondary tiny" id="gamesOlderBtn" data-i18n="lobby.gamesOlderBtn">▼ Daha Eski</button>
+        <button type="button" class="secondary tiny" id="gamesLastBtn" data-i18n="lobby.gamesLastBtn">Son Oyunlar</button>
+      </div>
     </div>
   </div>
 </div>
