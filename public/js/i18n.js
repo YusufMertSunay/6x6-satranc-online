@@ -308,7 +308,7 @@
       'chat.unmuteButton': 'Susturmayı Kaldır',
       'chat.playerRateLimitHint': 'Rakibin cevap verene kadar mesaj gönderemezsin.',
       'chat.spectatorRateLimitHint': 'Başka biri araya yazana kadar mesaj gönderemezsin.',
-      'chat.mergedRateLimitHint': 'Karşı taraf cevap verene kadar art arda mesaj gönderemezsin.',
+      'chat.mergedRateLimitHint': 'Karşı taraf cevap verene kadar art arda 3. mesajı gönderemezsin.',
       'chat.sendFailedPrefix': 'Mesaj gönderilemedi: ',
       'chat.loadFailedPrefix': 'Sohbet yüklenemedi: ',
 
@@ -582,7 +582,7 @@
       'chat.unmuteButton': 'Unmute',
       'chat.playerRateLimitHint': 'You need to wait for your opponent to reply before sending another message.',
       'chat.spectatorRateLimitHint': 'You need to wait for someone else to post before sending another message.',
-      'chat.mergedRateLimitHint': 'You need to wait for someone else to reply before sending another message in a row.',
+      'chat.mergedRateLimitHint': "You can't send a 3rd message in a row until the other side replies.",
       'chat.sendFailedPrefix': "Couldn't send message: ",
       'chat.loadFailedPrefix': "Couldn't load chat: ",
 
