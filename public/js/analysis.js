@@ -1643,6 +1643,11 @@
       try { await api('POST', `/api/game/${gameId}/watch`); } catch { /* önemli değil */ }
       await initBlockOpponentUi();
       await reloadRematchState();
+      // Kullanıcı isteği: sohbet SADECE bir oyuna bağlı analizde anlamlı --
+      // varsayılan olarak gizli olan #chatSection'ı burada (freeMode
+      // DEĞİLKEN) gösteriyoruz (bkz. analysis.html: chatSection açıklaması).
+      const chatSectionEl = $('chatSection');
+      if (chatSectionEl) chatSectionEl.classList.remove('hidden');
       if (window.ChatUI) await ChatUI.init(gameId, me.id);
       connectSse();
     }

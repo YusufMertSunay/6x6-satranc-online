@@ -117,8 +117,12 @@
 
     <!-- Sohbet (kullanıcı isteği): oyun bittikten sonra oyuncu ve seyirci
          sohbetleri BİRLEŞİR, herkes aynı sohbette görebilir/yazabilir.
-         game.html ile birebir AYNI markup, bkz. public/js/chat.js. -->
-    <div class="chat-section" id="chatSection">
+         game.html ile birebir AYNI markup, bkz. public/js/chat.js.
+         Kullanıcı isteği: OYUNSUZ (serbest) analizde bir "oyun/rakip"
+         kavramı olmadığı için sohbetin hiç anlamı yok -- bu yüzden
+         varsayılan olarak GİZLİ, sadece bir OYUNA bağlı analizde
+         (freeMode değilken) analysis.js: init() tarafından gösteriliyor. -->
+    <div class="hidden chat-section" id="chatSection">
       <div class="chat-section-header">
         <button type="button" class="secondary tiny" id="chatHideToggleBtn" data-i18n="chat.hide">Sohbeti Gizle</button>
         <button type="button" class="secondary tiny" id="chatMuteManageBtn" data-i18n="chat.manageMutedBtn">Susturduklarım</button>
