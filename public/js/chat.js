@@ -181,9 +181,10 @@
       renderMessageList($('primaryChatMessages'), primaryMessages);
       if (primaryForm) primaryForm.classList.remove('hidden');
       if (secondaryBox) secondaryBox.classList.add('hidden');
-      // Kullanıcı isteği: birleşik sohbette art arda mesaj sınırı YOK
-      // (sadece canlı sohbetler için istendi, bkz. gameManager.js: sendChat).
-      clearRateLimitUi(primaryInput, primarySendBtn, primaryHint);
+      // Kullanıcı isteği: birleşik (oyun sonu) sohbette de canlı oyuncu
+      // sohbetiyle AYNI art arda mesaj sınırı geçerli (bkz. gameManager.js:
+      // sendChat -- merged dalı da artık _trailingStreak kontrolü yapıyor).
+      updateRateLimitUi(primaryInput, primarySendBtn, primaryHint, primaryMessages, 2, 'chat.mergedRateLimitHint');
       return;
     }
 
