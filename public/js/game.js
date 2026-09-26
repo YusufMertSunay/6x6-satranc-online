@@ -167,9 +167,12 @@
   // yoluyla (sunucuda) yapılıyor (bkz. tryExecutePremove).
   //
   // NOT: Bu varyantta sadece vezir tarafı rok mümkün (bkz. lib/gameManager.js
-  // START_FEN'deki "Qq" bayrağı) -- rok, ön-hamle olarak DESTEKLENMİYOR (nadir
-  // bir durum; rok yapmak isteyen oyuncu rakibin hamlesini bekleyip normal
-  // şekilde oynayabilir).
+  // START_FEN'deki "Qq" bayrağı) -- rok da ön-hamle olarak kuyruğa alınabiliyor
+  // (aşağıdaki 'k' dalına bakınız). UCI gösteriminde rok, kralın normal bir
+  // hamlesi gibi (sadece 2 kare) temsil edildiği için (bkz. lib/notation.js),
+  // bunu ayrı bir "hamle türü" olarak değil, kralın olası hedeflerinden biri
+  // olarak ekliyoruz -- sunucu gönderildiğinde bunu normal şekilde (rok
+  // hakları, araya giren kareler, şah durumu dahil) kendisi doğrulayacak.
   function computePremoveDestinations(grid, r, c) {
     const piece = grid[r][c];
     if (!piece) return [];
@@ -212,6 +215,24 @@
         for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
           tryStep(r + dr, c + dc);
+        }
+      }
+      // Roklanma (kullanıcı isteği): bu varyantta kral hep d-sütununda (c=3)
+      // başlıyor, kale a-sütununda (c=0) -- kral hâlâ rok hakkına sahipse
+      // (FEN'in rok hakları alanı, geçerli 'state' üzerinden okunuyor) VE
+      // aradaki iki kare (b, c sütunları) boşsa, kralın 2 kare sola gittiği
+      // kareyi (b-sütunu) de bir aday olarak ekliyoruz. Şah durumunu ya da
+      // geçilen karenin tehdit altında olup olmadığını BURADA kontrol
+      // etmiyoruz (diğer taşlarda olduğu gibi -- bu sadece bir tahmin,
+      // gerçek doğrulama rakip oynadıktan sonra sunucuda yapılıyor).
+      if (c === 3) {
+        const castlingRights = (state && state.currentFen ? state.currentFen.split(' ')[2] : '') || '';
+        const rightLetter = color === 'white' ? 'Q' : 'q';
+        if (castlingRights.includes(rightLetter) && !grid[r][1] && !grid[r][2]) {
+          const rook = grid[r][0];
+          if (rook && rook.toLowerCase() === 'r' && pieceColorOf(rook) === color) {
+            dests.push({ r, c: 1 });
+          }
         }
       }
     } else if (letter === 'p') {
