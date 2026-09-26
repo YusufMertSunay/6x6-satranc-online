@@ -599,17 +599,17 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 }
 
 /* Ön-hamle (premove) -- lichess'teki gibi: sıra rakipteyken bir taş seçilip
-   bir hedef kare belirlenince, ikisi de turuncu bir vurgu ile işaretlenir;
+   bir hedef kare belirlenince, ikisi de mor bir vurgu ile işaretlenir;
    rakip hamlesini yapar yapmaz otomatik olarak GERÇEK bir hamle olarak
    denenir (bkz. game.js: tryExecutePremove). Seçim aşamasındaki aday
-   hedefler de (henüz kuyruğa alınmadan) aynı turuncu tonda küçük bir
+   hedefler de (henüz kuyruğa alınmadan) aynı mor tonda küçük bir
    noktayla gösterilir -- ::before kullanıyoruz ki .selected/.legal-dest'in
    kullandığı ::after ile hiçbir zaman çakışmasın. */
 .square.premove-square::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(255, 140, 0, 0.55);
+  background: rgba(147, 51, 234, 0.55);
 }
 
 .square.premove-dest::after {
@@ -618,7 +618,7 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(255, 140, 0, 0.55);
+  background: rgba(147, 51, 234, 0.55);
 }
 
 /* Sürükleme sırasında farenin/parmağın altında gezen "hayalet" taş görseli.
