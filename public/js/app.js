@@ -1022,7 +1022,15 @@
         const username = outgoingChallenge.targetUsername;
         outgoingChallenge = null;
         renderOutgoingChallenge();
-        alert(I18N.t('lobby.challengeDeclinedByTarget', { username }));
+        // Kullanıcı isteği: hedef teklifi GERÇEKTEN reddetmediyse (sadece
+        // yanıtlamadan siteden çıkış yaptıysa -- bkz. gameManager.js:
+        // cancelAllChallengesForUser), bunu bir "ret" gibi değil, doğru
+        // şekilde göstermeliyiz.
+        if (data.reason === 'logged_out') {
+          alert(I18N.t('lobby.challengeCancelledDueToLogout', { username }));
+        } else {
+          alert(I18N.t('lobby.challengeDeclinedByTarget', { username }));
+        }
       }
     });
     sse.addEventListener('challenge_cancelled', (e) => {
