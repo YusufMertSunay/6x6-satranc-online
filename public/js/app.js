@@ -60,7 +60,7 @@
     }
   });
 
-  $('logoutBtn').addEventListener('click', async () => {
+  async function performLogout() {
     try { await api('POST', '/api/logout'); } catch { }
     if (sse) sse.close();
     currentUser = null;
@@ -74,6 +74,24 @@
     $('authView').classList.remove('hidden');
     $('authUsername').value = '';
     $('authPassword').value = '';
+  }
+
+  // Kullanıcı isteği: "Çıkış" düğmesine basınca doğrudan çıkış yapmak
+  // yerine önce bir onay penceresi açılsın (solda "Çıkışı İptal Et", sağda
+  // kırmızı "Çıkış Yap" düğmesi).
+  $('logoutBtn').addEventListener('click', () => {
+    $('logoutConfirmModal').classList.remove('hidden');
+  });
+  $('logoutCancelBtn').addEventListener('click', () => {
+    $('logoutConfirmModal').classList.add('hidden');
+  });
+  $('logoutConfirmBtn').addEventListener('click', () => {
+    $('logoutConfirmModal').classList.add('hidden');
+    performLogout();
+  });
+  // Karartılmış arka plana tıklanınca da kapansın (diğer modallarla aynı desen).
+  $('logoutConfirmModal').addEventListener('click', (e) => {
+    if (e.target === $('logoutConfirmModal')) $('logoutConfirmModal').classList.add('hidden');
   });
 
   // ---------------- Lobi ----------------

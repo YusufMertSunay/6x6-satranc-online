@@ -32,6 +32,9 @@
 
       // ---- Genel / gezinme ----
       'nav.logout': 'Çıkış',
+      'nav.logoutConfirmText': 'Çıkış yapmak istediğine emin misin?',
+      'nav.logoutCancelBtn': 'Çıkışı İptal Et',
+      'nav.logoutConfirmBtn': 'Çıkış Yap',
       'nav.backToLobby': '← Lobiye dön',
       'nav.backToGame': '← Oyuna dön',
       'common.accept': 'Kabul Et',
@@ -390,6 +393,9 @@
       'title.analysis': 'Analysis Board · 6x6 Chess Online',
 
       'nav.logout': 'Log out',
+      'nav.logoutConfirmText': 'Are you sure you want to log out?',
+      'nav.logoutCancelBtn': 'Cancel',
+      'nav.logoutConfirmBtn': 'Log Out',
       'nav.backToLobby': '← Back to lobby',
       'nav.backToGame': '← Back to game',
       'common.accept': 'Accept',

@@ -22,6 +22,20 @@
   </div>
 </header>
 
+<!-- Kullanıcı isteği: "Çıkış" düğmesine basınca doğrudan çıkış yapmak
+     yerine, önce bir onay penceresi açılsın -- solda "Çıkışı İptal Et",
+     sağda (kırmızı) "Çıkış Yap" düğmesi olsun (bkz. app.js: #logoutBtn,
+     #logoutConfirmBtn/#logoutCancelBtn). -->
+<div class="modal-overlay hidden" id="logoutConfirmModal">
+  <div class="card" style="max-width:380px; text-align:center">
+    <p data-i18n="nav.logoutConfirmText">Çıkış yapmak istediğine emin misin?</p>
+    <div style="display:flex; gap:10px; margin-top:10px">
+      <button type="button" class="secondary" id="logoutCancelBtn" style="flex:1" data-i18n="nav.logoutCancelBtn">Çıkışı İptal Et</button>
+      <button type="button" class="danger" id="logoutConfirmBtn" style="flex:1" data-i18n="nav.logoutConfirmBtn">Çıkış Yap</button>
+    </div>
+  </div>
+</div>
+
 <!-- ---- Giriş / Kayıt ---- -->
 <div class="container auth-wrap" id="authView">
   <div class="card">
