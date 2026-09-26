@@ -603,20 +603,54 @@ async function handleApi(req, res, pathname, url) {
     // 31-40 arası). "İlk 10 / Son 10 / Yukarı / Aşağı" düğmeleri ise her
     // zaman AÇIKÇA bir offset gönderir -- bu durumda merkezleme UYGULANMAZ,
     // istenen sayfa aynen döndürülür.
+    //
+    // YENİ (kullanıcı isteği: oyuncu profili özelliği): ?username=X
+    // verilirse ve offset AÇIKÇA belirtilmemişse, sayfa ARAYAN kullanıcı
+    // yerine O İSTEDİĞİMİZ OYUNCUNUN kendi sırasını içerecek şekilde
+    // ortalanır -- bkz. public/js/app.js: openPlayerProfile/loadProfileLeaderboard.
+    // Böylece "kendi liderlik tablomdan bir oyuncuya tıkla" ve "bir oyuncuyu
+    // ara" senaryolarının ikisi de aynı uca, aynı mantıkla bağlanıyor.
     const limitParam = parseInt(url.searchParams.get('limit'), 10);
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 10;
+    const centerUsername = url.searchParams.get('username');
+    let centerUserId = user.id;
+    if (centerUsername) {
+      const centerUser = store.getUserByUsername(centerUsername);
+      if (!centerUser) return errJson(res, 404, 'Oyuncu bulunamadı.');
+      centerUserId = centerUser.id;
+    }
     const offsetParam = url.searchParams.get('offset');
     let offset;
     if (offsetParam !== null) {
       const parsed = parseInt(offsetParam, 10);
       offset = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     } else {
-      const myRank = store.rankOf(category, user.id);
+      const myRank = store.rankOf(category, centerUserId);
       offset = myRank ? Math.floor((myRank - 1) / limit) * limit : 0;
     }
 
     const page = store.leaderboard(category, offset, limit);
     return sendJson(res, 200, { category, total: page.total, offset: page.offset, limit, leaderboard: page.entries });
+  }
+
+  // YENİ (kullanıcı isteği: oyuncu profili özelliği) -- belirli bir
+  // kullanıcı adını "aratınca" ya da liderlik tablosunda birinin üzerine
+  // tıklanınca gösterilecek özet bilgi: puanları, galibiyet/mağlubiyet/
+  // beraberlik sayısı ve (varsa) O AN oynadığı canlı oyunun kimliği --
+  // ikincisi sayesinde ön yüz "İzle" düğmesiyle doğrudan o oyuna seyirci
+  // olarak girebiliyor (bkz. lib/gameManager.js: activeGameId -- bu
+  // fonksiyon zaten HERHANGİ bir kullanıcı id'si için çalışıyor, sadece
+  // "kendi" aktif oyunuma özel değil).
+  if (pathname === '/api/player-info' && req.method === 'GET') {
+    const targetUsername = url.searchParams.get('username');
+    const target = targetUsername ? store.getUserByUsername(targetUsername) : null;
+    if (!target) return errJson(res, 404, 'Oyuncu bulunamadı.');
+    return sendJson(res, 200, {
+      username: target.username,
+      ratings: target.ratings,
+      wins: target.wins, losses: target.losses, draws: target.draws,
+      activeGameId: gameManager.activeGameId(target.id),
+    });
   }
 
   if (pathname === '/api/logout' && req.method === 'POST') {
@@ -652,11 +686,24 @@ async function handleApi(req, res, pathname, url) {
     // varsayılan olarak en yeni 10 oyun (offset=0) döndürülüyor; ön yüzün
     // "İlk Oyunlar / Son Oyunlar / daha eski / daha yeni" düğmeleri kendi
     // offset'ini açıkça göndererek sayfalar arasında gezinir.
+    //
+    // YENİ (kullanıcı isteği: oyuncu profili özelliği): ?username=X
+    // verilirse KENDİ oyun geçmişimiz yerine O oyuncunun geçmişi döner --
+    // profil penceresi (bkz. app.js: loadProfileGames) bu sayede aynı
+    // sayfalama mantığını (offset/limit, "İlk Oyunlar/Son Oyunlar/daha
+    // eski/daha yeni" düğmeleri) hiç tekrar yazmadan yeniden kullanıyor.
     const limitParam = parseInt(url.searchParams.get('limit'), 10);
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 10;
     const offsetParam = parseInt(url.searchParams.get('offset'), 10);
     const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
-    const page = store.recentGamesForUser(user.id, offset, limit);
+    const targetUsername = url.searchParams.get('username');
+    let targetUserId = user.id;
+    if (targetUsername) {
+      const targetUser = store.getUserByUsername(targetUsername);
+      if (!targetUser) return errJson(res, 404, 'Oyuncu bulunamadı.');
+      targetUserId = targetUser.id;
+    }
+    const page = store.recentGamesForUser(targetUserId, offset, limit);
     return sendJson(res, 200, { games: page.entries, total: page.total, offset: page.offset, limit });
   }
 

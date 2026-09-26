@@ -106,6 +106,20 @@
       </div>
     </div>
 
+    <!-- Kullanıcı isteği: bir oyuncuyu isimle arayıp -- eğer o an canlı bir
+         oyunu varsa seyirci olarak izleyebilmek, oyun geçmişini görmek ve
+         liderlik tablosundaki (kendi sırasını içeren) yerini görmek için.
+         Aynı pencere, aşağıdaki liderlik tablosunda bir kullanıcının adına
+         tıklanınca da açılıyor (bkz. app.js: openPlayerProfile). -->
+    <div class="card">
+      <h3 data-i18n="lobby.playerSearchTitle">Oyuncu Ara</h3>
+      <form class="auth-form" id="playerSearchForm">
+        <input type="text" id="playerSearchUsername" placeholder="Kullanıcı adı" data-i18n-placeholder="lobby.playerSearchPlaceholder" autocomplete="off" required>
+        <div class="error-text" id="playerSearchError"></div>
+        <button class="primary" type="submit" id="playerSearchBtn" data-i18n="lobby.playerSearchBtn">Ara</button>
+      </form>
+    </div>
+
     <div class="card">
       <h3 data-i18n="lobby.blockTitle">Kullanıcı Engelle</h3>
       <form class="auth-form" id="blockForm">
@@ -161,6 +175,62 @@
         <span class="pagination-range" id="gamesRangeText"></span>
         <button type="button" class="secondary tiny" id="gamesOlderBtn" data-i18n="lobby.gamesOlderBtn">▼ Daha Eski</button>
         <button type="button" class="secondary tiny" id="gamesLastBtn" data-i18n="lobby.gamesLastBtn">Son Oyunlar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kullanıcı isteği: oyuncu profili penceresi -- "Oyuncu Ara" formundan
+       ya da liderlik tablosundaki bir kullanıcı adına tıklanınca açılır.
+       İçindeki liderlik/oyun geçmişi mini-widget'ları, aynı /api/leaderboard
+       ve /api/my-games uçlarını (bu kez ?username= ile) yeniden kullanıyor
+       -- bkz. app.js: openPlayerProfile / loadProfileLeaderboard / loadProfileGames. -->
+  <div class="modal-overlay hidden" id="playerProfileModal">
+    <div class="card player-profile-box">
+      <div class="player-profile-header">
+        <h3 id="profileUsername"></h3>
+        <button type="button" class="secondary tiny" id="profileCloseBtn" data-i18n="common.close">Kapat</button>
+      </div>
+      <p class="hint-text" id="profileRecordLine"></p>
+
+      <div class="hidden" id="profileActiveGameBanner" style="margin-bottom:14px">
+        <div class="draw-offer-banner">
+          <span data-i18n="lobby.profileLiveGameNotice">Şu an canlı bir oyunu var.</span>
+          <button class="primary" id="profileWatchBtn" data-i18n="lobby.profileWatchBtn">Seyirci Olarak İzle</button>
+        </div>
+      </div>
+
+      <h4 data-i18n="lobby.leaderboardTitle">Liderlik Tablosu</h4>
+      <div class="leaderboard-tabs" id="profileLbTabs">
+        <button class="active" data-category="bullet" data-i18n="cat.bullet">Bullet</button>
+        <button data-category="blitz" data-i18n="cat.blitz">Blitz</button>
+        <button data-category="rapid" data-i18n="cat.rapid">Rapid</button>
+        <button data-category="classical" data-i18n="cat.classical">Klasik</button>
+      </div>
+      <table class="leaderboard-table">
+        <thead><tr>
+          <th data-i18n="lobby.thRank">#</th>
+          <th data-i18n="lobby.thUser">Kullanıcı</th>
+          <th data-i18n="lobby.thRating">Puan</th>
+          <th data-i18n="lobby.thRecord">G/M/B</th>
+        </tr></thead>
+        <tbody id="profileLbBody"></tbody>
+      </table>
+      <div class="pagination-row" id="profileLbPagination">
+        <button type="button" class="secondary tiny" id="profileLbFirstBtn" data-i18n="lobby.lbFirstBtn">İlk 10</button>
+        <button type="button" class="secondary tiny" id="profileLbUpBtn" data-i18n="lobby.lbUpBtn">▲ Yukarı</button>
+        <span class="pagination-range" id="profileLbRangeText"></span>
+        <button type="button" class="secondary tiny" id="profileLbDownBtn" data-i18n="lobby.lbDownBtn">▼ Aşağı</button>
+        <button type="button" class="secondary tiny" id="profileLbLastBtn" data-i18n="lobby.lbLastBtn">Son 10</button>
+      </div>
+
+      <h4 style="margin-top:18px" data-i18n="lobby.recentGamesTitle">Son Oyunların</h4>
+      <ul class="games-list" id="profileGamesList"></ul>
+      <div class="pagination-row" id="profileGamesPagination">
+        <button type="button" class="secondary tiny" id="profileGamesFirstBtn" data-i18n="lobby.gamesFirstBtn">İlk Oyunlar</button>
+        <button type="button" class="secondary tiny" id="profileGamesNewerBtn" data-i18n="lobby.gamesNewerBtn">▲ Daha Yeni</button>
+        <span class="pagination-range" id="profileGamesRangeText"></span>
+        <button type="button" class="secondary tiny" id="profileGamesOlderBtn" data-i18n="lobby.gamesOlderBtn">▼ Daha Eski</button>
+        <button type="button" class="secondary tiny" id="profileGamesLastBtn" data-i18n="lobby.gamesLastBtn">Son Oyunlar</button>
       </div>
     </div>
   </div>

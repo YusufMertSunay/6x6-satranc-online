@@ -42,6 +42,7 @@
       'common.black': 'Siyah',
       'common.random': 'Rastgele',
       'common.dash': '-',
+      'common.close': 'Kapat',
 
       // ---- Giriş / Kayıt ----
       'auth.login': 'Giriş Yap',
@@ -93,6 +94,17 @@
       'lobby.gamesOlderBtn': '▼ Daha Eski',
       'lobby.paginationRange': '{start}-{end} / {total}',
       'lobby.paginationEmpty': '0 / 0',
+
+      // ---- Oyuncu profili (kullanıcı isteği: bir oyuncuyu arayınca ya da
+      // liderlik tablosunda üzerine tıklayınca canlı oyununu/geçmişini/
+      // liderlik tablosundaki yerini görebilme) ----
+      'lobby.playerSearchTitle': 'Oyuncu Ara',
+      'lobby.playerSearchPlaceholder': 'Kullanıcı adı',
+      'lobby.playerSearchBtn': 'Ara',
+      'lobby.profileLiveGameNotice': 'Şu an canlı bir oyunu var.',
+      'lobby.profileWatchBtn': 'Seyirci Olarak İzle',
+      'result.wonThirdPerson': 'Kazandı',
+      'result.lostThirdPerson': 'Kaybetti',
 
       // ---- Kullanıcı engelleme (kullanıcı isteği) ----
       'lobby.blockTitle': 'Kullanıcı Engelle',
@@ -326,6 +338,7 @@
       'common.black': 'Black',
       'common.random': 'Random',
       'common.dash': '-',
+      'common.close': 'Close',
 
       'auth.login': 'Log In',
       'auth.register': 'Sign Up',
@@ -374,6 +387,15 @@
       'lobby.gamesOlderBtn': '▼ Older',
       'lobby.paginationRange': '{start}-{end} / {total}',
       'lobby.paginationEmpty': '0 / 0',
+
+      // ---- Player profile ----
+      'lobby.playerSearchTitle': 'Search Player',
+      'lobby.playerSearchPlaceholder': 'Username',
+      'lobby.playerSearchBtn': 'Search',
+      'lobby.profileLiveGameNotice': 'Currently in a live game.',
+      'lobby.profileWatchBtn': 'Watch as Spectator',
+      'result.wonThirdPerson': 'Won',
+      'result.lostThirdPerson': 'Lost',
 
       // ---- Blocking users ----
       'lobby.blockTitle': 'Block a User',

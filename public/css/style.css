@@ -343,6 +343,38 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
   cursor: not-allowed;
 }
 
+/* Kullanıcı isteği: liderlik tablosundaki bir kullanıcının adına tıklanınca
+   o oyuncunun profili (canlı oyun/geçmiş/liderlik) açılsın -- tıklanabilir
+   olduğu belli olsun diye kullanıcı adı hücreleri link gibi gösteriliyor. */
+.leaderboard-table td.username-cell {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.leaderboard-table td.username-cell:hover { color: var(--accent-hover); }
+
+/* Profil penceresindeki mini liderlik tablosunda, incelenen oyuncunun
+   KENDİ satırı diğerlerinden ayırt edilsin diye hafifçe vurgulanıyor. */
+.leaderboard-table tr.highlighted-row td {
+  background: rgba(127, 166, 80, 0.18);
+  font-weight: 600;
+}
+
+/* ---- Oyuncu profili penceresi (kullanıcı isteği) ---- */
+.player-profile-box {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 40px));
+  overflow-y: auto;
+}
+.player-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.player-profile-header h3 { margin: 0; }
+.player-profile-box h4 { margin-bottom: 10px; }
+
 /* ---- Oyun sayfası ---- */
 .game-layout {
   display: flex;

@@ -92,6 +92,19 @@
   let myGamesOffset = null;
   let myGamesTotal = 0;
 
+  // ---- Oyuncu profili (kullanıcı isteği) ----
+  // "Oyuncu Ara" formundan ya da herhangi bir liderlik tablosundaki
+  // kullanıcı adına tıklanınca açılan pencerenin kendi (bağımsız) sayfalama
+  // durumu -- ana liderlik tablosu/son oyunlar ile KARIŞMASIN diye ayrı
+  // değişkenlerde tutuluyor (aynı /api/leaderboard, /api/my-games uçları
+  // bu kez ?username= parametresiyle çağrılıyor, bkz. aşağısı).
+  let profileUsername = null; // pencere açıkken incelenen oyuncu, kapalıyken null
+  let profileLbCategory = 'bullet';
+  let profileLbOffset = null;
+  let profileLbTotal = 0;
+  let profileGamesOffset = null;
+  let profileGamesTotal = 0;
+
   // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — her biri 1500'den
   // başlıyor. Her kategori zaten kendi satırında gösterildiği için üstte
@@ -175,6 +188,35 @@
     selectedTc = activeKey;
   }
 
+  // Liderlik tablosu satırını oluşturur -- hem ana lobi tablosunda hem de
+  // oyuncu profili penceresindeki mini tabloda AYNEN kullanılıyor (kullanıcı
+  // isteği: birinin üzerine tıklayınca onun profili açılsın -- bu davranış
+  // HER İKİ tabloda da geçerli, profildeki tablodan da başka birine
+  // atlanabilir). highlightUsername verilirse (profil penceresinde,
+  // incelenen oyuncuyu diğerlerinden ayırt etmek için) o satır vurgulanır.
+  function buildLeaderboardRow(u, highlightUsername) {
+    const tr = document.createElement('tr');
+    if (highlightUsername && u.username.toLowerCase() === highlightUsername.toLowerCase()) {
+      tr.className = 'highlighted-row';
+    }
+    const tdRank = document.createElement('td');
+    tdRank.textContent = u.rank;
+    const tdUser = document.createElement('td');
+    tdUser.textContent = u.username;
+    tdUser.className = 'username-cell';
+    tdUser.title = I18N.t('lobby.playerSearchTitle');
+    tdUser.addEventListener('click', () => openPlayerProfile(u.username));
+    const tdRating = document.createElement('td');
+    tdRating.textContent = u.rating;
+    const tdRecord = document.createElement('td');
+    tdRecord.textContent = `${u.wins}/${u.losses}/${u.draws}`;
+    tr.appendChild(tdRank);
+    tr.appendChild(tdUser);
+    tr.appendChild(tdRating);
+    tr.appendChild(tdRecord);
+    return tr;
+  }
+
   // offset === null  -> sunucudan varsayılan (kullanıcının kendi sırasını
   //                     içeren) dilimi iste.
   // offset === sayı  -> TAM o dilimi iste (düğmelerden biri tıklandığında).
@@ -192,11 +234,7 @@
     leaderboardTotal = data.total;
     const body = $('leaderboardBody');
     body.innerHTML = '';
-    data.leaderboard.forEach((u) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${u.rank}</td><td>${escapeHtml(u.username)}</td><td>${u.rating}</td><td>${u.wins}/${u.losses}/${u.draws}</td>`;
-      body.appendChild(tr);
-    });
+    data.leaderboard.forEach((u) => body.appendChild(buildLeaderboardRow(u)));
     renderLeaderboardPagination();
   }
 
@@ -340,6 +378,186 @@
     const iWon = (g.winnerColor === 'white' && meWhite) || (g.winnerColor === 'black' && !meWhite);
     return iWon ? I18N.t('result.won') : I18N.t('result.lost');
   }
+
+  // describeResult ile aynı mantık ama BAŞKA bir oyuncunun profilinde
+  // gösterildiği için 2. şahıs ("Kazandın/Kaybettin") yerine 3. şahıs
+  // ("Kazandı/Kaybetti") kullanıyor -- kullanıcı isteği: oyuncu profili.
+  function describeResultThirdPerson(g, targetWhite) {
+    if (g.winnerColor === null) return I18N.t('result.draw');
+    const targetWon = (g.winnerColor === 'white' && targetWhite) || (g.winnerColor === 'black' && !targetWhite);
+    return targetWon ? I18N.t('result.wonThirdPerson') : I18N.t('result.lostThirdPerson');
+  }
+
+  // ---------------- Oyuncu profili penceresi (kullanıcı isteği) ----------------
+  // Bir oyuncuyu isimle arayınca (#playerSearchForm) ya da HERHANGİ bir
+  // liderlik tablosundaki (ana lobi ya da bu pencerenin kendi mini
+  // tablosu) kullanıcı adına tıklanınca açılır. Üç şeyi gösterir: o an
+  // canlı bir oyunu varsa seyirci olarak izleme seçeneği, oyun geçmişi ve
+  // liderlik tablosundaki (kendi sırasını içeren) yeri -- üçü de zaten var
+  // olan uçların (varsa ?username= ile) yeniden kullanılmasıyla elde ediliyor.
+  // onError verilmezse (ör. liderlik tablosundaki bir satıra tıklanınca --
+  // orada hatayı göstermek için doğal bir yer yok) hata basit bir uyarı
+  // penceresiyle gösterilir. #playerSearchForm'un submit dinleyicisi kendi
+  // onError'ını (hatayı formun altında göstermek için) veriyor.
+  async function openPlayerProfile(username, onError) {
+    try {
+      const info = await api('GET', '/api/player-info?username=' + encodeURIComponent(username));
+      profileUsername = info.username; // sunucudaki GERÇEK (büyük/küçük harfi doğru) kullanıcı adı
+      profileLbCategory = 'bullet';
+      profileLbOffset = null;
+      profileGamesOffset = null;
+      renderProfileHeader(info);
+      document.querySelectorAll('#profileLbTabs button').forEach(b => b.classList.toggle('active', b.dataset.category === 'bullet'));
+      $('playerProfileModal').classList.remove('hidden');
+      await Promise.all([loadProfileLeaderboard(), loadProfileGames()]);
+    } catch (err) {
+      if (onError) onError(err);
+      else alert(I18N.tErr(err));
+    }
+  }
+
+  function closePlayerProfile() {
+    $('playerProfileModal').classList.add('hidden');
+    profileUsername = null;
+  }
+
+  $('profileCloseBtn').addEventListener('click', closePlayerProfile);
+  // Karartılmış arka plana (overlay'in kendisine) tıklanınca da kapansın --
+  // ama pencerenin İÇİNE (kart) tıklanınca kapanmasın diye hedefi kontrol
+  // ediyoruz (aynı desen: promotionModal zaten böyle bir davranışa sahip
+  // değil ama bu genel bir modal-overlay iyileştirmesi, zararsız).
+  $('playerProfileModal').addEventListener('click', (e) => {
+    if (e.target === $('playerProfileModal')) closePlayerProfile();
+  });
+
+  function renderProfileHeader(info) {
+    $('profileUsername').textContent = info.username;
+    $('profileRecordLine').textContent = `${info.wins}/${info.losses}/${info.draws}`;
+    const banner = $('profileActiveGameBanner');
+    if (info.activeGameId) {
+      banner.classList.remove('hidden');
+      $('profileWatchBtn').onclick = () => { window.location.href = '/game.html?id=' + info.activeGameId; };
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  $('playerSearchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = $('playerSearchUsername').value.trim();
+    if (!username) return;
+    $('playerSearchError').textContent = '';
+    $('playerSearchBtn').disabled = true;
+    try {
+      await openPlayerProfile(username, (err) => { $('playerSearchError').textContent = I18N.tErr(err); });
+    } finally {
+      $('playerSearchBtn').disabled = false;
+    }
+  });
+
+  // ---- Profil penceresi: mini liderlik tablosu (ana tablo ile aynı mantık,
+  // ama HER ZAMAN incelenen oyuncuya göre -- ?username= ile) ----
+  async function loadProfileLeaderboard(category, offset) {
+    if (category) { profileLbCategory = category; profileLbOffset = null; }
+    else if (offset !== undefined) profileLbOffset = offset;
+    let path = '/api/leaderboard?category=' + profileLbCategory + '&limit=' + PAGE_SIZE + '&username=' + encodeURIComponent(profileUsername);
+    if (profileLbOffset !== null) path += '&offset=' + profileLbOffset;
+    const data = await api('GET', path);
+    profileLbOffset = data.offset;
+    profileLbTotal = data.total;
+    const body = $('profileLbBody');
+    body.innerHTML = '';
+    data.leaderboard.forEach((u) => body.appendChild(buildLeaderboardRow(u, profileUsername)));
+    renderProfileLbPagination();
+  }
+
+  function renderProfileLbPagination() {
+    const total = profileLbTotal;
+    const offset = profileLbOffset;
+    const lastOffset = total > PAGE_SIZE ? total - PAGE_SIZE : 0;
+    const start = total === 0 ? 0 : offset + 1;
+    const end = Math.min(offset + PAGE_SIZE, total);
+    $('profileLbRangeText').textContent = total === 0 ? I18N.t('lobby.paginationEmpty') : I18N.t('lobby.paginationRange', { start, end, total });
+    $('profileLbFirstBtn').disabled = offset <= 0;
+    $('profileLbUpBtn').disabled = offset <= 0;
+    $('profileLbDownBtn').disabled = offset >= lastOffset;
+    $('profileLbLastBtn').disabled = offset >= lastOffset;
+  }
+
+  $('profileLbTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-category]');
+    if (!btn) return;
+    document.querySelectorAll('#profileLbTabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadProfileLeaderboard(btn.dataset.category);
+  });
+  $('profileLbFirstBtn').addEventListener('click', () => loadProfileLeaderboard(null, 0));
+  $('profileLbUpBtn').addEventListener('click', () => loadProfileLeaderboard(null, Math.max(0, profileLbOffset - PAGE_SIZE)));
+  $('profileLbDownBtn').addEventListener('click', () => {
+    const lastOffset = profileLbTotal > PAGE_SIZE ? profileLbTotal - PAGE_SIZE : 0;
+    loadProfileLeaderboard(null, Math.min(lastOffset, profileLbOffset + PAGE_SIZE));
+  });
+  $('profileLbLastBtn').addEventListener('click', () => {
+    const lastOffset = profileLbTotal > PAGE_SIZE ? profileLbTotal - PAGE_SIZE : 0;
+    loadProfileLeaderboard(null, lastOffset);
+  });
+
+  // ---- Profil penceresi: oyun geçmişi (ana "Son Oyunların" ile aynı
+  // mantık, ama HER ZAMAN incelenen oyuncuya göre -- ?username= ile) ----
+  async function loadProfileGames(offset) {
+    if (offset !== undefined) profileGamesOffset = offset;
+    let path = '/api/my-games?limit=' + PAGE_SIZE + '&username=' + encodeURIComponent(profileUsername);
+    if (profileGamesOffset !== null && profileGamesOffset !== undefined) path += '&offset=' + profileGamesOffset;
+    const data = await api('GET', path);
+    profileGamesOffset = data.offset;
+    profileGamesTotal = data.total;
+    const list = $('profileGamesList');
+    list.innerHTML = '';
+    if (!data.games.length) {
+      list.innerHTML = `<li class="hint-text">${I18N.t('lobby.noGamesYet')}</li>`;
+      renderProfileGamesPagination();
+      return;
+    }
+    data.games.forEach(g => {
+      const li = document.createElement('li');
+      const targetIsWhite = (g.whiteUsername || '').toLowerCase() === profileUsername.toLowerCase();
+      const oppName = targetIsWhite ? g.blackUsername : g.whiteUsername;
+      const left = document.createElement('span');
+      left.textContent = `vs ${oppName || '?'} (${g.timeControlKey})`;
+      const right = document.createElement('span');
+      right.textContent = describeResultThirdPerson(g, targetIsWhite);
+      li.appendChild(left);
+      li.appendChild(right);
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => { window.location.href = '/game.html?id=' + g.id; });
+      list.appendChild(li);
+    });
+    renderProfileGamesPagination();
+  }
+
+  function renderProfileGamesPagination() {
+    const total = profileGamesTotal;
+    const offset = profileGamesOffset;
+    const lastOffset = total > PAGE_SIZE ? total - PAGE_SIZE : 0;
+    const start = total === 0 ? 0 : offset + 1;
+    const end = Math.min(offset + PAGE_SIZE, total);
+    $('profileGamesRangeText').textContent = total === 0 ? I18N.t('lobby.paginationEmpty') : I18N.t('lobby.paginationRange', { start, end, total });
+    $('profileGamesLastBtn').disabled = offset <= 0;
+    $('profileGamesNewerBtn').disabled = offset <= 0;
+    $('profileGamesOlderBtn').disabled = offset >= lastOffset;
+    $('profileGamesFirstBtn').disabled = offset >= lastOffset;
+  }
+
+  $('profileGamesLastBtn').addEventListener('click', () => loadProfileGames(0));
+  $('profileGamesNewerBtn').addEventListener('click', () => loadProfileGames(Math.max(0, profileGamesOffset - PAGE_SIZE)));
+  $('profileGamesOlderBtn').addEventListener('click', () => {
+    const lastOffset = profileGamesTotal > PAGE_SIZE ? profileGamesTotal - PAGE_SIZE : 0;
+    loadProfileGames(Math.min(lastOffset, profileGamesOffset + PAGE_SIZE));
+  });
+  $('profileGamesFirstBtn').addEventListener('click', () => {
+    const lastOffset = profileGamesTotal > PAGE_SIZE ? profileGamesTotal - PAGE_SIZE : 0;
+    loadProfileGames(lastOffset);
+  });
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -650,6 +868,13 @@
       loadBlockedList();
       renderOutgoingChallenge();
       renderIncomingChallenge();
+      // Oyuncu profili penceresi o an açıksa (kullanıcı isteği), onun
+      // içindeki dinamik metinler (sayfalama aralığı vb.) de yeni dilde
+      // yeniden çizilsin.
+      if (!$('playerProfileModal').classList.contains('hidden') && profileUsername) {
+        loadProfileLeaderboard();
+        loadProfileGames();
+      }
     }
   });
 
