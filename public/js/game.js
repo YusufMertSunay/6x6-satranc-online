@@ -660,7 +660,17 @@
     if (!state) return;
     let whiteMs = state.whiteClockMs;
     let blackMs = state.blackClockMs;
-    if (state.status === 'active') {
+    // Kullanıcı isteği (görsel düzeltme): sıradaki taraf henüz kendi İLK
+    // hamlesini yapmadıysa (bkz. lib/gameManager.js: FIRST_MOVE_DEADLINE_MS),
+    // sunucu o tarafın saatini GERÇEKTEN hiç azaltmıyor -- ama bu satırlar
+    // öncesinde ekran, elapsed süreyi HER ZAMAN düşüp saati GÖRSEL olarak
+    // (hem kendi ekranında hem rakibin ekranında) azalıyormuş gibi
+    // gösteriyordu, sonra hamle yapılınca sunucudan gelen gerçek (hiç
+    // azalmamış) değere aniden geri sıçrıyordu. Bunu önlemek için, o an
+    // beklenen "ilk hamle" hangi renge aitse, o rengin saatini de ekranda
+    // DONUK tutuyoruz (aynen sunucudaki gerçek davranışla birebir).
+    const isFirstMoveWait = state.whiteToMove ? !state.whiteMoved : !state.blackMoved;
+    if (state.status === 'active' && !isFirstMoveWait) {
       const elapsed = Date.now() - state.turnStartedAt;
       if (state.whiteToMove) whiteMs = Math.max(0, state.whiteClockMs - elapsed);
       else blackMs = Math.max(0, state.blackClockMs - elapsed);
