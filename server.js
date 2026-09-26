@@ -133,7 +133,7 @@ const ERROR_CODES = {
   'Kendini susturamazsın.': 'CANNOT_MUTE_SELF',
   // ---- Sohbet / seyirci özelliği (kullanıcı isteği) ----
   'Mesaj boş olamaz.': 'CHAT_EMPTY',
-  'Mesaj çok uzun (en fazla 500 karakter).': 'CHAT_TOO_LONG',
+  'Mesaj çok uzun (en fazla 280 karakter).': 'CHAT_TOO_LONG',
   'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.': 'CHAT_PLAYER_RATE_LIMIT',
   'Karşı taraf cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.': 'CHAT_PLAYER_RATE_LIMIT',
   'Başka biri araya mesaj yazana kadar üst üste en fazla 2 mesaj gönderebilirsin.': 'CHAT_SPECTATOR_RATE_LIMIT',
