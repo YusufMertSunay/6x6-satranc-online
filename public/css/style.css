@@ -1051,7 +1051,10 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
    küçük bir zil ikonu" / "ekranın sol alt köşesinde ... küçük bir buton". */
 .social-bell-btn {
   position: fixed;
-  top: 14px;
+  /* Kullanıcı geri bildirimi: üstteki 14px'lik konum, üst çubuktaki
+     (header.topbar) "Çıkış" düğmesinin TAM ÜZERİNE denk geliyordu --
+     zili çubuğun ALTINA, sağ kenara sabitliyoruz ki ikisi asla çakışmasın. */
+  top: 78px;
   right: 20px;
   z-index: 70;
   background: var(--bg-panel-light);
@@ -1149,7 +1152,9 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 }
 
 @media (max-width: 720px) {
-  .social-bell-btn { top: 8px; right: 10px; }
+  /* Telefonda üst çubuk iki satıra sarabildiği için (bkz. header.topbar
+     flex-wrap kuralı) zili biraz daha aşağı, yine sağ kenara koyuyoruz. */
+  .social-bell-btn { top: 96px; right: 10px; }
   .social-friends-btn { bottom: 10px; left: 10px; padding: 8px 12px; font-size: 13px; }
   .social-modal-box { max-width: none; }
 }
