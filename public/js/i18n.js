@@ -106,6 +106,16 @@
       'lobby.profileChallengeBtn': 'Özel Oyun Teklif Et',
       'lobby.profileChallengeAlreadyPending': 'Zaten bekleyen bir meydan okuman var. Önce onu iptal et ya da yanıtlanmasını bekle.',
 
+      // ---- Oyuncu profili: özel mesaj + arkadaşlık düğmeleri (kullanıcı isteği) ----
+      'lobby.profileMessageBtn': 'Mesaj Yaz',
+      'lobby.profileFriendRequestBtn': 'Arkadaşlık Teklif Et',
+      'lobby.profileFriendRequestSentBtn': 'Teklif Gönderildi',
+      'lobby.profileAlreadyFriendsTag': 'Arkadaşsınız',
+      'lobby.profileAcceptFriendBtn': 'Arkadaşlık Teklifini Kabul Et',
+      'lobby.profileDeclineFriendBtn': 'Reddet',
+      'lobby.profileFriendRequestSentAlert': '{username} adlı kullanıcıya arkadaşlık teklifi gönderildi.',
+      'lobby.profileFriendRequestAutoAccepted': '{username} zaten sana teklif göndermişti, otomatik olarak arkadaş oldunuz!',
+
       // ---- "Geçici puan" işaretleri (kullanıcı isteği: bir kategoride
       // henüz 8 puanlı maç oynamamış bir oyuncunun puanının yanında mavi
       // "?", liderlik tablosundaki sırasının yanında mavi "*") ----
@@ -283,6 +293,16 @@
       'err.CHAT_PLAYER_RATE_LIMIT': 'Rakibin cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.',
       'err.CHAT_SPECTATOR_RATE_LIMIT': 'Başka biri araya mesaj yazana kadar üst üste en fazla 2 mesaj gönderebilirsin.',
       'err.REMATCH_BLOCKED_FOR_GAME': 'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.',
+      // ---- Özel mesaj (DM) + arkadaşlık + mesaj-engelleme (kullanıcı isteği) ----
+      'err.CANNOT_FRIEND_SELF': 'Kendine arkadaşlık teklifi gönderemezsin.',
+      'err.FRIEND_REQUEST_BLOCKED': 'Aranızda bir engelleme olduğu için arkadaşlık teklifi gönderemezsin.',
+      'err.ALREADY_FRIENDS': 'Zaten arkadaşsınız.',
+      'err.FRIEND_REQUEST_ALREADY_PENDING': 'Zaten bekleyen bir arkadaşlık teklifin var.',
+      'err.FRIEND_REQUEST_NOT_FOUND': 'Böyle bir arkadaşlık teklifi yok (zaten yanıtlanmış olabilir).',
+      'err.CANNOT_DM_SELF': 'Kendine mesaj gönderemezsin.',
+      'err.DM_BLOCKED_BY_RECIPIENT': 'Bu kullanıcı mesaj almayı engellemiş, ona özel mesaj gönderemezsin.',
+      'err.DM_RATE_LIMIT': 'Karşı taraf cevap verene kadar art arda en fazla 2 özel mesaj gönderebilirsin.',
+      'err.CHAT_BLOCKED_BY_OPPONENT': 'Rakibin seni mesajla engellemiş, bu oyunda ona mesaj gönderemezsin.',
 
       // ---- Süre biçimlendirme (bkz. I18N.formatDuration) ----
       'duration.hoursMinutes': '{h} saat {m} dakika',
@@ -328,6 +348,39 @@
 
       // ---- Site geneli sağ-alt meydan okuma bildirimi (kullanıcı isteği) ----
       'lobby.challengeBlockBtn': 'Kullanıcıyı Engelle',
+
+      // ---- Özel mesaj + arkadaşlık + bildirim zili (kullanıcı isteği) ----
+      // bkz. public/js/social-widget.js -- tüm sayfalarda (lobi/oyun/analiz)
+      // ortak görünen zil ikonu + "Arkadaşlarım" düğmesi + açılan pencereler.
+      'social.bellTitle': 'Mesajlar',
+      'social.friendsButtonText': 'Arkadaşlarım',
+      'social.inboxTitle': 'Mesajlar',
+      'social.inboxEmpty': 'Henüz hiç mesajın yok.',
+      'social.friendsTitle': 'Arkadaşlarım',
+      'social.friendsEmpty': 'Henüz arkadaşın yok.',
+      'social.incomingRequestsTitle': 'Bekleyen Arkadaşlık Teklifleri',
+      'social.friendTag': ' (Arkadaş)',
+      'social.messageBlockBtn': 'Sadece Mesajını Engelle',
+      'social.fullBlockBtn': 'Komple Engelle',
+      'social.unfriendBtn': 'Arkadaşlıktan Çık',
+      'social.messageBlockConfirm': '{username} kullanıcısının sana özel mesaj atmasını engellemek istediğine emin misin? Bu otomatik olarak arkadaşlıktan da çıkarır (önceki mesajlar silinmez).',
+      'social.fullBlockConfirm': '{username} kullanıcısını komple engellemek istediğine emin misin? Bu otomatik olarak hem arkadaşlıktan çıkarır hem de mesaj atmasını engeller (önceki mesajlar silinmez).',
+      'social.unfriendConfirm': '{username} ile arkadaşlıktan çıkmak istediğine emin misin?',
+      'social.deleteSelectedBtn': 'Seçilenleri Sil',
+      'social.deleteAllBtn': 'Tümünü Sil',
+      'social.deleteSelectedConfirm': 'Seçili {count} mesaj (senin için) silinsin mi?',
+      'social.deleteAllConfirm': '{username} ile olan TÜM mesajlar (senin için) silinsin mi? (Karşı taraf için silinmez.)',
+      'social.deleteNoneSelected': 'Önce silmek istediğin mesaj(lar)ı işaretle.',
+      'social.backBtn': '← Geri',
+      'social.sendBtn': 'Gönder',
+      'social.conversationPlaceholder': 'Özel mesaj yaz...',
+      'social.noMessagesYet': 'Henüz mesaj yok.',
+      'social.rateLimitHint': 'Karşı taraf cevap verene kadar art arda en fazla 2 özel mesaj gönderebilirsin.',
+      'social.sendFailedPrefix': 'Mesaj gönderilemedi: ',
+      'social.loadFailedPrefix': 'Sohbet yüklenemedi: ',
+      'social.friendRequestAcceptedNotice': '{username} arkadaşlık teklifini kabul etti!',
+      'social.friendRequestReceivedNotice': '{username} sana arkadaşlık teklifi gönderdi. "Arkadaşlarım" penceresinden yanıtlayabilirsin.',
+      'social.newDmNotice': '{username} sana yeni bir özel mesaj gönderdi.',
     },
     en: {
       'brand.titleHome': '6x6 <span class="accent">Chess</span> Online',
@@ -405,6 +458,16 @@
       'lobby.profileWatchBtn': 'Watch as Spectator',
       'lobby.profileChallengeBtn': 'Send a Challenge',
       'lobby.profileChallengeAlreadyPending': 'You already have a pending challenge. Cancel it or wait for a response first.',
+
+      // ---- Player profile: DM + friend request buttons ----
+      'lobby.profileMessageBtn': 'Send Message',
+      'lobby.profileFriendRequestBtn': 'Send Friend Request',
+      'lobby.profileFriendRequestSentBtn': 'Request Sent',
+      'lobby.profileAlreadyFriendsTag': 'Friends',
+      'lobby.profileAcceptFriendBtn': 'Accept Friend Request',
+      'lobby.profileDeclineFriendBtn': 'Decline',
+      'lobby.profileFriendRequestSentAlert': 'Friend request sent to {username}.',
+      'lobby.profileFriendRequestAutoAccepted': '{username} had already sent you a request, so you are now friends automatically!',
 
       // ---- "Provisional rating" marks ----
       'lobby.provisionalRatingTitle': "Fewer than 8 rated games played in this category yet — this rating is still provisional.",
@@ -564,6 +627,16 @@
       'err.CHAT_PLAYER_RATE_LIMIT': "You can send at most 2 messages in a row until your opponent replies.",
       'err.CHAT_SPECTATOR_RATE_LIMIT': "You can send at most 2 messages in a row until someone else posts.",
       'err.REMATCH_BLOCKED_FOR_GAME': "You were declined twice in a row in this game, so you can no longer offer this opponent a rematch for this specific game.",
+      // ---- Direct messages + friends + message-block ----
+      'err.CANNOT_FRIEND_SELF': "You can't send yourself a friend request.",
+      'err.FRIEND_REQUEST_BLOCKED': "You can't send a friend request because there is a block between you two.",
+      'err.ALREADY_FRIENDS': 'You are already friends.',
+      'err.FRIEND_REQUEST_ALREADY_PENDING': 'You already have a pending friend request to this user.',
+      'err.FRIEND_REQUEST_NOT_FOUND': "There's no such friend request (it may have already been answered).",
+      'err.CANNOT_DM_SELF': "You can't send yourself a message.",
+      'err.DM_BLOCKED_BY_RECIPIENT': "This user has blocked messages from you, so you can't send them a direct message.",
+      'err.DM_RATE_LIMIT': "You can send at most 2 direct messages in a row until the other side replies.",
+      'err.CHAT_BLOCKED_BY_OPPONENT': "Your opponent has message-blocked you, so you can't send them a message in this game.",
 
       // ---- Duration formatting (see I18N.formatDuration) ----
       'duration.hoursMinutes': '{h}h {m}m',
@@ -609,6 +682,37 @@
 
       // ---- Site-wide bottom-right challenge notification ----
       'lobby.challengeBlockBtn': 'Block User',
+
+      // ---- Direct messages + friends + notification bell ----
+      'social.bellTitle': 'Messages',
+      'social.friendsButtonText': 'My Friends',
+      'social.inboxTitle': 'Messages',
+      'social.inboxEmpty': "You don't have any messages yet.",
+      'social.friendsTitle': 'My Friends',
+      'social.friendsEmpty': "You don't have any friends yet.",
+      'social.incomingRequestsTitle': 'Pending Friend Requests',
+      'social.friendTag': ' (Friend)',
+      'social.messageBlockBtn': 'Block Messages Only',
+      'social.fullBlockBtn': 'Full Block',
+      'social.unfriendBtn': 'Unfriend',
+      'social.messageBlockConfirm': "Block {username} from sending you direct messages? This will also automatically unfriend them (existing messages are not deleted).",
+      'social.fullBlockConfirm': "Fully block {username}? This will also automatically unfriend them and block their messages (existing messages are not deleted).",
+      'social.unfriendConfirm': 'Unfriend {username}?',
+      'social.deleteSelectedBtn': 'Delete Selected',
+      'social.deleteAllBtn': 'Delete All',
+      'social.deleteSelectedConfirm': 'Delete the {count} selected message(s) (just for you)?',
+      'social.deleteAllConfirm': 'Delete ALL messages with {username} (just for you)? (Not deleted for the other side.)',
+      'social.deleteNoneSelected': 'Select the message(s) you want to delete first.',
+      'social.backBtn': '← Back',
+      'social.sendBtn': 'Send',
+      'social.conversationPlaceholder': 'Type a direct message...',
+      'social.noMessagesYet': 'No messages yet.',
+      'social.rateLimitHint': "You can send at most 2 direct messages in a row until the other side replies.",
+      'social.sendFailedPrefix': "Couldn't send message: ",
+      'social.loadFailedPrefix': "Couldn't load conversation: ",
+      'social.friendRequestAcceptedNotice': '{username} accepted your friend request!',
+      'social.friendRequestReceivedNotice': '{username} sent you a friend request. You can respond to it from "My Friends".',
+      'social.newDmNotice': '{username} sent you a new direct message.',
     },
   };
 

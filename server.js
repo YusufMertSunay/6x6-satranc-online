@@ -19,6 +19,7 @@ const { Store, RATING_CATEGORIES } = require('./lib/store');
 const { hashPassword, verifyPassword, SessionManager, parseCookies } = require('./lib/auth');
 const { EventHub } = require('./lib/events');
 const { GameManager, START_FEN } = require('./lib/gameManager');
+const { SocialManager } = require('./lib/socialManager');
 const { isInsufficientMaterial } = require('./lib/rules');
 const { moveToSan } = require('./lib/notation');
 const { createEmptyTree, addNode, childIdsOf, findChildByUci, uciPathTo, deleteSubtree } = require('./lib/analysisTree');
@@ -47,6 +48,9 @@ const MAX_PV_SAN_PLIES = 10;
 const store = new Store();
 const sessions = new SessionManager();
 const hub = new EventHub();
+// Özel mesaj (DM) + arkadaşlık + "sadece mesaj atmasını engelle" özelliği
+// (kullanıcı isteği) -- ayrıntılar için bkz. lib/socialManager.js.
+const socialManager = new SocialManager(store, hub);
 const engine = new Engine(ENGINE_PATH, VARIANTS_PATH, 'minichess6x6');
 // Analiz için tamamen AYRI bir motor süreci: canlı oyunlardaki hamle
 // yasallığı kontrolleri hiçbir zaman bir analiz isteğinin arkasında
@@ -138,6 +142,17 @@ const ERROR_CODES = {
   'Karşı taraf cevap verene kadar art arda en fazla 2 mesaj gönderebilirsin.': 'CHAT_PLAYER_RATE_LIMIT',
   'Başka biri araya mesaj yazana kadar üst üste en fazla 2 mesaj gönderebilirsin.': 'CHAT_SPECTATOR_RATE_LIMIT',
   'Bu oyunda art arda 2 kez reddedildiğin için bu rakibe, bu oyuna özel olarak, artık yeni oyun teklif edemezsin.': 'REMATCH_BLOCKED_FOR_GAME',
+  // ---- Özel mesaj (DM) + arkadaşlık + "sadece mesaj atmasını engelle" ----
+  // (kullanıcı isteği: profil penceresinden mesaj/arkadaşlık, bildirim zili)
+  'Kendine arkadaşlık teklifi gönderemezsin.': 'CANNOT_FRIEND_SELF',
+  'Aranızda bir engelleme olduğu için arkadaşlık teklifi gönderemezsin.': 'FRIEND_REQUEST_BLOCKED',
+  'Zaten arkadaşsınız.': 'ALREADY_FRIENDS',
+  'Zaten bekleyen bir arkadaşlık teklifin var.': 'FRIEND_REQUEST_ALREADY_PENDING',
+  'Böyle bir arkadaşlık teklifi yok (zaten yanıtlanmış olabilir).': 'FRIEND_REQUEST_NOT_FOUND',
+  'Kendine mesaj gönderemezsin.': 'CANNOT_DM_SELF',
+  'Bu kullanıcı mesaj almayı engellemiş, ona özel mesaj gönderemezsin.': 'DM_BLOCKED_BY_RECIPIENT',
+  'Karşı taraf cevap verene kadar art arda en fazla 2 özel mesaj gönderebilirsin.': 'DM_RATE_LIMIT',
+  'Rakibin seni mesajla engellemiş, bu oyunda ona mesaj gönderemezsin.': 'CHAT_BLOCKED_BY_OPPONENT',
 };
 
 // Bazı hatalar (yukarıdaki sabit errorCode eşlemesinin YANI SIRA) dinamik
@@ -645,12 +660,23 @@ async function handleApi(req, res, pathname, url) {
     const targetUsername = url.searchParams.get('username');
     const target = targetUsername ? store.getUserByUsername(targetUsername) : null;
     if (!target) return errJson(res, 404, 'Oyuncu bulunamadı.');
+    // Profil penceresindeki "Mesaj Yaz" / "Arkadaşlık Teklif Et" düğmelerinin
+    // doğru durumda (etkin/pasif/"teklif gönderildi" vb.) gösterilebilmesi
+    // için viewer (giriş yapmış kullanıcı) ile bu hedef arasındaki
+    // arkadaşlık/engelleme durumunu da ekliyoruz (kullanıcı isteği).
+    const isSelf = target.id === user.id;
     return sendJson(res, 200, {
       username: target.username,
       ratings: target.ratings,
       provisional: store.provisionalMap(target),
       wins: target.wins, losses: target.losses, draws: target.draws,
       activeGameId: gameManager.activeGameId(target.id),
+      isSelf,
+      isFriend: isSelf ? false : store.isFriend(user.id, target.id),
+      hasOutgoingFriendRequest: isSelf ? false : store.hasOutgoingFriendRequest(user.id, target.id),
+      hasIncomingFriendRequest: isSelf ? false : store.hasOutgoingFriendRequest(target.id, user.id),
+      isMessageBlockedByMe: isSelf ? false : store.isMessageBlocked(user.id, target.id),
+      canMessage: isSelf ? false : !store.isMessageBlocked(target.id, user.id),
     });
   }
 
@@ -920,6 +946,107 @@ async function handleApi(req, res, pathname, url) {
     } catch (err) {
       return errJson(res, 400, err.message);
     }
+  }
+
+  // ---- Arkadaşlık (kullanıcı isteği: profil penceresinden teklif) ----
+  if (pathname === '/api/friends/list' && req.method === 'GET') {
+    return sendJson(res, 200, { usernames: socialManager.listFriends(user.id) });
+  }
+
+  if (pathname === '/api/friends/incoming' && req.method === 'GET') {
+    return sendJson(res, 200, { usernames: socialManager.listIncomingFriendRequests(user.id) });
+  }
+
+  if (pathname === '/api/friends/request' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = socialManager.sendFriendRequest(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/friends/respond' && req.method === 'POST') {
+    const { username, accept } = await readBody(req);
+    try {
+      const result = socialManager.respondFriendRequest(user.id, username, !!accept);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/friends/unfriend' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = socialManager.unfriend(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  // ---- "Sadece mesaj atmasını engelle" (komple engellemeden daha hafif) ----
+  if (pathname === '/api/dm/message-block' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = socialManager.messageBlock(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  // ---- Özel mesaj (DM) ----
+  if (pathname === '/api/dm/send' && req.method === 'POST') {
+    const { username, text } = await readBody(req);
+    try {
+      const result = socialManager.sendDirectMessage(user.id, username, text);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errFromException(res, err);
+    }
+  }
+
+  if (pathname === '/api/dm/conversation' && req.method === 'GET') {
+    const username = url.searchParams.get('username');
+    try {
+      const result = socialManager.getConversation(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/dm/mark-read' && req.method === 'POST') {
+    const { username } = await readBody(req);
+    try {
+      const result = socialManager.markRead(user.id, username);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/dm/delete' && req.method === 'POST') {
+    // messageIds: 'all' ya da mesaj id dizisi (kullanıcı isteği: tek tek/
+    // birkaç tanesini/hepsini birden silebilme, "hepsini sil" için ayrı düğme).
+    const { username, messageIds } = await readBody(req);
+    try {
+      const result = socialManager.deleteMessages(user.id, username, messageIds);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return errJson(res, 400, err.message);
+    }
+  }
+
+  if (pathname === '/api/dm/inbox' && req.method === 'GET') {
+    return sendJson(res, 200, { conversations: socialManager.getInbox(user.id) });
+  }
+
+  if (pathname === '/api/dm/unread-counts' && req.method === 'GET') {
+    return sendJson(res, 200, socialManager.unreadCounts(user.id));
   }
 
   const gameIdMatch = pathname.match(/^\/api\/game\/([^/]+)(\/.*)?$/);

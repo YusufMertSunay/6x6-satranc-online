@@ -200,6 +200,21 @@
            renderProfileHeader. -->
       <button type="button" class="primary" id="profileChallengeBtn" style="width:100%; margin-bottom:14px" data-i18n="lobby.profileChallengeBtn">Özel Oyun Teklif Et</button>
 
+      <!-- Kullanıcı isteği: aynı pencerede "Mesaj Yaz" (özel mesaj) ve
+           "Arkadaşlık Teklif Et" düğmeleri de olsun -- bkz. app.js:
+           renderProfileHeader (düğmelerin metni/görünürlüğü, o an aradaki
+           arkadaşlık/engelleme durumuna göre dinamik olarak değişiyor) ve
+           public/js/social-widget.js (mesaj penceresini gerçekten açan
+           paylaşılan bileşen -- bkz. window.SocialWidget.openConversation). -->
+      <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap" id="profileSocialBtns">
+        <button type="button" class="secondary" id="profileMessageBtn" style="flex:1" data-i18n="lobby.profileMessageBtn">Mesaj Yaz</button>
+        <button type="button" class="secondary" id="profileFriendBtn" style="flex:1" data-i18n="lobby.profileFriendRequestBtn">Arkadaşlık Teklif Et</button>
+      </div>
+      <div class="hidden" id="profileIncomingFriendBox" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap">
+        <button type="button" class="primary" id="profileAcceptFriendBtn" style="flex:1" data-i18n="lobby.profileAcceptFriendBtn">Arkadaşlık Teklifini Kabul Et</button>
+        <button type="button" class="secondary" id="profileDeclineFriendBtn" style="flex:1" data-i18n="lobby.profileDeclineFriendBtn">Reddet</button>
+      </div>
+
       <div class="hidden" id="profileActiveGameBanner" style="margin-bottom:14px">
         <div class="draw-offer-banner">
           <span data-i18n="lobby.profileLiveGameNotice">Şu an canlı bir oyunu var.</span>
@@ -245,6 +260,7 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/social-widget.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

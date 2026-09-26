@@ -51,6 +51,7 @@
       const user = await api('POST', authMode === 'login' ? '/api/login' : '/api/register', { username, password });
       currentUser = user;
       I18N.syncFromAccount(user.language);
+      if (window.SocialWidget) window.SocialWidget.activate(user);
       await enterLobby();
     } catch (err) {
       $('authError').textContent = I18N.tErr(err);
@@ -64,6 +65,10 @@
     if (sse) sse.close();
     currentUser = null;
     resetChallengeState();
+    // Kullanıcı isteği: bildirim zili + "Arkadaşlarım" düğmesi (bkz.
+    // public/js/social-widget.js) -- çıkış yapılınca gizlenmesi, giriş
+    // ekranında görünmemesi gerekiyor (bkz. aşağısı: activate/deactivate).
+    if (window.SocialWidget) window.SocialWidget.deactivate();
     $('userBadge').classList.add('hidden');
     $('lobbyView').classList.add('hidden');
     $('authView').classList.remove('hidden');
@@ -104,6 +109,11 @@
   let profileLbTotal = 0;
   let profileGamesOffset = null;
   let profileGamesTotal = 0;
+  // Kullanıcı isteği: profil penceresindeki "Mesaj Yaz"/"Arkadaşlık Teklif
+  // Et" düğmelerinin doğru durumda gösterilebilmesi için, /api/player-info
+  // yanıtındaki sosyal alanları (isFriend, hasOutgoingFriendRequest, vb. --
+  // bkz. server.js) burada saklıyoruz (bkz. renderProfileHeader).
+  let profileSocialInfo = null;
 
   // Elo puanı artık TEK bir sayı değil, süre kontrolü kategorisine göre
   // (bullet/blitz/rapid/classical) AYRI tutuluyor — her biri 1500'den
@@ -502,7 +512,96 @@
     // meydan okuma düğmesini baştan gizliyoruz.
     const isSelf = currentUser && info.username.toLowerCase() === currentUser.username.toLowerCase();
     $('profileChallengeBtn').classList.toggle('hidden', isSelf || !!info.activeGameId);
+    renderProfileSocialButtons(info, isSelf);
   }
+
+  // Kullanıcı isteği: profil penceresinde "Mesaj Yaz" ve "Arkadaşlık Teklif
+  // Et" düğmeleri -- ikincisinin metni/etkinliği aradaki mevcut duruma göre
+  // değişiyor (zaten arkadaşsanız / teklif zaten gönderilmişse / karşı
+  // taraf zaten size teklif göndermişse "Kabul Et"/"Reddet" gösteriliyor).
+  function renderProfileSocialButtons(info, isSelf) {
+    profileSocialInfo = info;
+    if (isSelf) {
+      $('profileSocialBtns').classList.add('hidden');
+      $('profileIncomingFriendBox').classList.add('hidden');
+      return;
+    }
+    $('profileSocialBtns').classList.remove('hidden');
+    $('profileMessageBtn').disabled = false;
+    const friendBtn = $('profileFriendBtn');
+    if (info.isFriend) {
+      friendBtn.textContent = I18N.t('lobby.profileAlreadyFriendsTag');
+      friendBtn.disabled = true;
+      friendBtn.classList.remove('hidden');
+      $('profileIncomingFriendBox').classList.add('hidden');
+    } else if (info.hasIncomingFriendRequest) {
+      // Karşı taraf ZATEN bize teklif göndermiş -- "teklif et" yerine
+      // doğrudan Kabul Et/Reddet gösteriyoruz (tekrar teklif göndermenin
+      // zaten sunucuda otomatik kabule yol açtığını hatırlatmaya gerek yok,
+      // ama daha net bir arayüz için burada direkt yanıt seçeneği sunuyoruz).
+      friendBtn.classList.add('hidden');
+      $('profileIncomingFriendBox').classList.remove('hidden');
+    } else {
+      friendBtn.classList.remove('hidden');
+      $('profileIncomingFriendBox').classList.add('hidden');
+      if (info.hasOutgoingFriendRequest) {
+        friendBtn.textContent = I18N.t('lobby.profileFriendRequestSentBtn');
+        friendBtn.disabled = true;
+      } else {
+        friendBtn.textContent = I18N.t('lobby.profileFriendRequestBtn');
+        friendBtn.disabled = false;
+      }
+    }
+  }
+
+  $('profileMessageBtn').addEventListener('click', () => {
+    if (!profileUsername) return;
+    const username = profileUsername;
+    closePlayerProfile();
+    if (window.SocialWidget) window.SocialWidget.openConversation(username, null);
+  });
+
+  $('profileFriendBtn').addEventListener('click', async () => {
+    if (!profileUsername || $('profileFriendBtn').disabled) return;
+    const username = profileUsername;
+    $('profileFriendBtn').disabled = true;
+    try {
+      const res = await api('POST', '/api/friends/request', { username });
+      if (res.autoAccepted) alert(I18N.t('lobby.profileFriendRequestAutoAccepted', { username: res.username }));
+      else alert(I18N.t('lobby.profileFriendRequestSentAlert', { username: res.username }));
+      if (window.SocialWidget) window.SocialWidget.refreshBadges();
+      const info = await api('GET', '/api/player-info?username=' + encodeURIComponent(username));
+      renderProfileHeader(info);
+    } catch (err) {
+      alert(I18N.tErr(err));
+      $('profileFriendBtn').disabled = false;
+    }
+  });
+
+  $('profileAcceptFriendBtn').addEventListener('click', async () => {
+    if (!profileUsername) return;
+    const username = profileUsername;
+    try {
+      await api('POST', '/api/friends/respond', { username, accept: true });
+      if (window.SocialWidget) window.SocialWidget.refreshBadges();
+      const info = await api('GET', '/api/player-info?username=' + encodeURIComponent(username));
+      renderProfileHeader(info);
+    } catch (err) {
+      alert(I18N.tErr(err));
+    }
+  });
+
+  $('profileDeclineFriendBtn').addEventListener('click', async () => {
+    if (!profileUsername) return;
+    const username = profileUsername;
+    try {
+      await api('POST', '/api/friends/respond', { username, accept: false });
+      const info = await api('GET', '/api/player-info?username=' + encodeURIComponent(username));
+      renderProfileHeader(info);
+    } catch (err) {
+      alert(I18N.tErr(err));
+    }
+  });
 
   // Profil penceresindeki "Özel Oyun Teklif Et" düğmesi -- var olan
   // "Bir Oyuncuya Meydan Oku" formunu (renk/puanlı-puansız/süre kontrolü
@@ -966,6 +1065,7 @@
       const me = await api('GET', '/api/me');
       currentUser = me;
       I18N.syncFromAccount(me.language);
+      if (window.SocialWidget) window.SocialWidget.activate(me);
       await enterLobby();
     } catch {
       $('authView').classList.remove('hidden');
