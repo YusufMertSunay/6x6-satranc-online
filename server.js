@@ -681,6 +681,11 @@ async function handleApi(req, res, pathname, url) {
   }
 
   if (pathname === '/api/logout' && req.method === 'POST') {
+    // Kullanıcı isteği: çıkış yapan kullanıcıyla ilgili bekleyen tüm
+    // doğrudan meydan okumalar (hem gönderdiği hem kendisine gönderilenler)
+    // anında otomatik olarak iptal/reddedilsin -- aksi halde karşı tarafın
+    // ekranında "yanıt bekleniyor" daveti sonsuza kadar asılı kalırdı.
+    gameManager.cancelAllChallengesForUser(user.id);
     const cookies = parseCookies(req);
     if (cookies['session']) sessions.destroySession(cookies['session']);
     res.setHeader('Set-Cookie', 'session=; HttpOnly; Path=/; Max-Age=0');
