@@ -105,6 +105,13 @@
       'lobby.profileWatchBtn': 'Seyirci Olarak İzle',
       'lobby.profileChallengeBtn': 'Özel Oyun Teklif Et',
       'lobby.profileChallengeAlreadyPending': 'Zaten bekleyen bir meydan okuman var. Önce onu iptal et ya da yanıtlanmasını bekle.',
+
+      // ---- "Geçici puan" işaretleri (kullanıcı isteği: bir kategoride
+      // henüz 8 puanlı maç oynamamış bir oyuncunun puanının yanında mavi
+      // "?", liderlik tablosundaki sırasının yanında mavi "*") ----
+      'lobby.provisionalRatingTitle': 'Bu kategoride henüz 8 puanlı maç oynanmadı, puan henüz geçici sayılır.',
+      'lobby.provisionalRankTitle': 'Bu oyuncu bu kategoride henüz 8 puanlı maç oynamadı, sırası henüz geçici sayılır.',
+
       'result.wonThirdPerson': 'Kazandı',
       'result.lostThirdPerson': 'Kaybetti',
 
@@ -398,6 +405,11 @@
       'lobby.profileWatchBtn': 'Watch as Spectator',
       'lobby.profileChallengeBtn': 'Send a Challenge',
       'lobby.profileChallengeAlreadyPending': 'You already have a pending challenge. Cancel it or wait for a response first.',
+
+      // ---- "Provisional rating" marks ----
+      'lobby.provisionalRatingTitle': "Fewer than 8 rated games played in this category yet — this rating is still provisional.",
+      'lobby.provisionalRankTitle': "This player hasn't played 8 rated games in this category yet — their rank is still provisional.",
+
       'result.wonThirdPerson': 'Won',
       'result.lostThirdPerson': 'Lost',
 

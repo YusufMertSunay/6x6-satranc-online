@@ -12,6 +12,7 @@
   --light-square: #ebecd0;
   --dark-square: #779556;
   --highlight: rgba(255, 255, 0, 0.35);
+  --info-blue: #5fb3e8;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   /* Kare boyutu artık SABİT bir piksel değeri değil, bir DEĞİŞKEN (--sq).
      Masaüstünde eskisiyle birebir aynı (70px) kalıyor -- clamp()'in ORTA
@@ -258,6 +259,24 @@ input:focus { outline: 2px solid var(--accent); }
 /* Her süre kontrolünün yanında, o kategorideki (Bullet/Blitz/Rapid/Klasik)
    Elo puanının gösterilmesi için — bkz. app.js loadTimeControls(). */
 .tc-option span.tc-rating { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* Kullanıcı isteği: bir kategoride henüz 8 puanlı maç oynanmadıysa, o
+   kategorideki puanın yanında mavi bir "?" (bkz. .provisional-mark, puanların
+   yanında) ve liderlik tablosundaki sıranın yanında mavi bir "*" (bkz.
+   .provisional-mark, sıra hücresinde) gösterilir — ikisi de aynı sınıfı
+   (görsel olarak aynı: mavi, üst simge/superscript) kullanıyor, sadece
+   içindeki karakter ("?" ya da "*") ve konumu (bkz. app.js/game.js/
+   analysis.js: sırasıyla ratingMarkupHtml/rankMarkupHtml) farklı.
+   var(--info-blue) tanımlı değilse (eski bir tarayıcı önbelleği vs.) sabit
+   mavi renge (#5fb3e8) düşer. */
+.provisional-mark {
+  color: var(--info-blue, #5fb3e8);
+  font-weight: 700;
+  font-size: 0.75em;
+  vertical-align: super;
+  margin-left: 1px;
+  cursor: help;
+}
 
 /* ---- Doğrudan meydan okuma (belirli bir oyuncuya davet) ---- */
 .challenge-color-options {

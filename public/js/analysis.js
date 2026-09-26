@@ -50,6 +50,7 @@
   let whiteId = null, blackId = null;
   let whiteUsername = '?', blackUsername = '?';
   let whiteRating = null, blackRating = null;
+  let whiteProvisional = false, blackProvisional = false;
   let startFen = null;
   let clockHistory = []; // clockHistory[k] = k hamle oynanmışken geçerli olan saatler (bkz. gameManager.js)
   let timeControlCategory = 'bullet';
@@ -1061,6 +1062,15 @@
 
   // ---------------- Durum metni / oyuncu isimleri ----------------
 
+  // Kullanıcı isteği: bir oyuncu bu kategoride henüz 8 puanlı maç
+  // oynamadıysa, puanının yanında mavi bir "?" gösterilir (bkz. app.js/
+  // game.js'deki AYNI adlı fonksiyon -- ortak bir modül olmadığı için, bu
+  // dosyada da aynı mantık tekrarlanıyor).
+  function ratingMarkupHtml(rating, provisional) {
+    if (!provisional) return String(rating);
+    return `${rating}<sup class="provisional-mark" title="${I18N.t('lobby.provisionalRatingTitle')}">?</sup>`;
+  }
+
   function renderPlayerNames() {
     const bottomColor = flipped ? 'black' : 'white';
     const topColor = flipped ? 'white' : 'black';
@@ -1070,15 +1080,17 @@
     // yazısını arayüz diline göre BİZ üretiyoruz.
     const nameFor = (color) => (color === 'white' ? whiteUsername : blackUsername) || I18N.t('common.' + color);
     const ratingFor = (color) => color === 'white' ? whiteRating : blackRating;
+    const provisionalFor = (color) => color === 'white' ? whiteProvisional : blackProvisional;
     const suffix = (color) => (color === myColor ? I18N.t('common.youSuffix') : '');
     $('bottomName').textContent = nameFor(bottomColor) + suffix(bottomColor);
     $('topName').textContent = nameFor(topColor) + suffix(topColor);
     // İsimlerin yanında, bu oyunun süre kontrolü kategorisine ait Elo puanı
-    // (hem kendiminki hem rakibinki) gösteriliyor.
+    // (hem kendiminki hem rakibinki) gösteriliyor -- bu kategoride henüz 8
+    // maç oynamamış tarafın puanının yanında mavi "?" işareti çıkıyor.
     const bottomRating = ratingFor(bottomColor);
     const topRating = ratingFor(topColor);
-    $('bottomRating').textContent = typeof bottomRating === 'number' ? bottomRating : '';
-    $('topRating').textContent = typeof topRating === 'number' ? topRating : '';
+    $('bottomRating').innerHTML = typeof bottomRating === 'number' ? ratingMarkupHtml(bottomRating, provisionalFor(bottomColor)) : '';
+    $('topRating').innerHTML = typeof topRating === 'number' ? ratingMarkupHtml(topRating, provisionalFor(topColor)) : '';
   }
 
   // ---------------- Saatler (o pozisyondaki GERÇEK saat durumu) ----------------
@@ -1617,6 +1629,8 @@
     blackUsername = info.blackUsername;
     whiteRating = typeof info.whiteRating === 'number' ? info.whiteRating : null;
     blackRating = typeof info.blackRating === 'number' ? info.blackRating : null;
+    whiteProvisional = !!info.whiteProvisional;
+    blackProvisional = !!info.blackProvisional;
     clockHistory = info.clockHistory || [];
     // Serbest analizde (freeMode) gerçek bir süre kontrolü kategorisi yok --
     // bunu 'bullet'a düşürürsek puan rozeti YANLIŞLIKLA kullanıcının bullet
@@ -1626,7 +1640,9 @@
     // Puan rozeti bu oyunun süre kontrolü kategorisine ait puanı gösteriyor
     // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
     // freeMode'da kategori olmadığı için rozet boş ('-') kalır.
-    $('userRating').textContent = (timeControlCategory && me.ratings) ? (me.ratings[timeControlCategory] ?? '-') : '-';
+    const myRatingValue = (timeControlCategory && me.ratings) ? (me.ratings[timeControlCategory] ?? '-') : '-';
+    const myIsProvisional = !!(timeControlCategory && me.provisional && me.provisional[timeControlCategory]);
+    $('userRating').innerHTML = typeof myRatingValue === 'number' ? ratingMarkupHtml(myRatingValue, myIsProvisional) : myRatingValue;
 
     myColor = me.id === whiteId ? 'white' : (me.id === blackId ? 'black' : null);
     flipped = myColor === 'black';

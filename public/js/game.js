@@ -30,6 +30,15 @@
     return I18N.t('cat.' + category);
   }
 
+  // Kullanıcı isteği: bir oyuncu bu kategoride henüz 8 puanlı maç
+  // oynamadıysa, puanının yanında mavi bir "?" gösterilir (bkz. app.js'deki
+  // AYNI adlı fonksiyon -- ortak bir modül olmadığı için, bu dosyada da
+  // aynı mantık tekrarlanıyor).
+  function ratingMarkupHtml(rating, provisional) {
+    if (!provisional) return String(rating);
+    return `${rating}<sup class="provisional-mark" title="${I18N.t('lobby.provisionalRatingTitle')}">?</sup>`;
+  }
+
   // Süre kutucuğunun "az kaldı" (kırmızı) uyarısına geçeceği eşik, kategoriye
   // göre değişiyor: Bullet'te 10 sn, Blitz'te 30 sn, Rapid ve Klasik'te 1 dk.
   const LOW_TIME_MS = { bullet: 10000, blitz: 30000, rapid: 60000, classical: 60000 };
@@ -805,8 +814,15 @@
     // değişimi olmadığından bu satır hiç gösterilmiyor.
     if (!isSpectator && state.ranked !== false && typeof state.whiteRatingAfter === 'number') {
       const myRatingAfter = myColor === 'white' ? state.whiteRatingAfter : state.blackRatingAfter;
+      const myProvisionalAfter = myColor === 'white' ? state.whiteProvisionalAfter : state.blackProvisionalAfter;
       const catLabel = state.timeControlCategory ? categoryLabel(state.timeControlCategory) : '';
-      ratingLine = `<div class="rating-change">${I18N.t('game.newRatingLine', { category: catLabel, rating: myRatingAfter })}</div>`;
+      // Çevrilmiş cümle ("Yeni Blitz puanın: 1512") her iki dilde de puanla
+      // BİTİYOR (bkz. i18n.js: "game.newRatingLine") -- geçici işareti bu
+      // yüzden cümlenin sonuna (sayının hemen ardına) ekliyoruz, cümlenin
+      // içindeki sayıyı ayrıştırmaya çalışmak yerine.
+      const sentence = I18N.t('game.newRatingLine', { category: catLabel, rating: myRatingAfter });
+      const mark = myProvisionalAfter ? `<sup class="provisional-mark" title="${I18N.t('lobby.provisionalRatingTitle')}">?</sup>` : '';
+      ratingLine = `<div class="rating-change">${sentence}${mark}</div>`;
     }
     banner.innerHTML = `<h3>${outcomeText}</h3><div>${resultReasonText(state.resultReason)}</div>${ratingLine}`;
     banner.classList.remove('hidden');
@@ -871,15 +887,18 @@
     const topColor = flipped ? 'white' : 'black';
     const nameFor = (color) => (color === 'white' ? state.whiteUsername : state.blackUsername) || (color === myColor ? me.username : I18N.t('common.' + color));
     const ratingFor = (color) => (color === 'white' ? state.whiteRating : state.blackRating);
+    const provisionalFor = (color) => (color === 'white' ? state.whiteProvisional : state.blackProvisional);
     const suffix = (color) => (color === myColor ? I18N.t('common.youSuffix') : '');
     $('bottomName').textContent = nameFor(bottomColor) + suffix(bottomColor);
     $('topName').textContent = nameFor(topColor) + suffix(topColor);
     // İsimlerin yanında, bu oyunun süre kontrolü KATEGORİSİNE ait Elo puanı
     // gösteriliyor — bkz. server.js'de eklenen state.whiteRating/blackRating.
+    // Kullanıcı isteği: bu kategoride henüz 8 maç oynamamış oyuncunun
+    // puanının yanında mavi "?" (bkz. state.whiteProvisional/blackProvisional).
     const bottomRating = ratingFor(bottomColor);
     const topRating = ratingFor(topColor);
-    $('bottomRating').textContent = typeof bottomRating === 'number' ? bottomRating : '';
-    $('topRating').textContent = typeof topRating === 'number' ? topRating : '';
+    $('bottomRating').innerHTML = typeof bottomRating === 'number' ? ratingMarkupHtml(bottomRating, provisionalFor(bottomColor)) : '';
+    $('topRating').innerHTML = typeof topRating === 'number' ? ratingMarkupHtml(topRating, provisionalFor(topColor)) : '';
   }
 
   function renderSpectatorBadge() {
@@ -1079,6 +1098,8 @@
         ranked: data.ranked,
         whiteRatingAfter: data.whiteRatingAfter,
         blackRatingAfter: data.blackRatingAfter,
+        whiteProvisionalAfter: data.whiteProvisionalAfter,
+        blackProvisionalAfter: data.blackProvisionalAfter,
       });
       legalMoves = [];
       selected = null;
@@ -1178,7 +1199,9 @@
     // Puan rozeti bu oyunun süre kontrolü KATEGORİSİNE ait puanı gösteriyor
     // (Elo artık tek bir sayı değil, kategoriye göre ayrı — bkz. store.js).
     const myCategory = state.timeControlCategory || 'bullet';
-    $('userRating').textContent = (me.ratings && me.ratings[myCategory]) ?? '-';
+    const myRatingValue = (me.ratings && me.ratings[myCategory]) ?? '-';
+    const myIsProvisional = !!(me.provisional && me.provisional[myCategory]);
+    $('userRating').innerHTML = typeof myRatingValue === 'number' ? ratingMarkupHtml(myRatingValue, myIsProvisional) : myRatingValue;
 
     // Kullanıcı isteği (seyirci özelliği): bu oyunun oyuncusu değilsek artık
     // hata verip DURMUYORUZ -- salt-okunur SEYİRCİ modunda devam ediyoruz.

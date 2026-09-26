@@ -114,6 +114,32 @@
     return (currentUser && currentUser.ratings && currentUser.ratings[category]) ?? 1500;
   }
 
+  // Kullanıcı isteği: bir kategoride henüz 8 puanlı maç oynamamış bir
+  // kullanıcının o kategorideki puanı "geçici" sayılır -- puanın yanında
+  // mavi bir "?" işareti gösteriyoruz (bkz. store.js: isProvisional/
+  // provisionalMap, server.js'nin /api/me, /api/register, /api/login,
+  // /api/leaderboard, /api/player-info uçlarına eklediği "provisional"
+  // alanı). currentUser.provisional -- her kategori için true/false --
+  // /api/me (veya /api/register, /api/login) yanıtından geliyor.
+  function isProvisionalFor(category) {
+    return !!(currentUser && currentUser.provisional && currentUser.provisional[category]);
+  }
+
+  // Bir Elo puanının yanına, geçiciyse mavi "?" ekleyen küçük bir HTML
+  // parçası üretir (bkz. yukarısı: .provisional-mark, style.css).
+  function ratingMarkupHtml(rating, provisional) {
+    if (!provisional) return String(rating);
+    return `${rating}<sup class="provisional-mark" title="${I18N.t('lobby.provisionalRatingTitle')}">?</sup>`;
+  }
+
+  // Liderlik tablosundaki bir sıra (rank) numarasının sağ üstüne, geçiciyse
+  // mavi "*" ekleyen küçük bir HTML parçası üretir -- kullanıcı isteği
+  // (örnek: "1*" -- 1. sırada ama henüz 8 maç oynamamış).
+  function rankMarkupHtml(rank, provisional) {
+    if (!provisional) return String(rank);
+    return `${rank}<sup class="provisional-mark" title="${I18N.t('lobby.provisionalRankTitle')}">*</sup>`;
+  }
+
   // Sunucudan gelen "label" alanı (ör. "3 dk | +2 sn (Blitz)") HÂLÂ Türkçe
   // metin -- dil değişince yeniden çevrilebilsin diye onu KULLANMIYORUZ,
   // bunun yerine "key" (ör. "3+2" = 3 dakika + 2 saniye artış) ve
@@ -152,7 +178,7 @@
       const div = document.createElement('div');
       div.className = 'tc-option' + (tc.key === activeKey ? ' selected' : '');
       div.dataset.key = tc.key;
-      div.innerHTML = `<span class="label">${formatTimeControlLabel(tc)}</span><span class="tc-rating">${ratingFor(tc.category)}</span>`;
+      div.innerHTML = `<span class="label">${formatTimeControlLabel(tc)}</span><span class="tc-rating">${ratingMarkupHtml(ratingFor(tc.category), isProvisionalFor(tc.category))}</span>`;
       div.addEventListener('click', async () => {
         // ÖNEMLİ (bir kullanıcı raporuyla bulunan hata): kuyrukta beklerken
         // (inQueue) bu liste hâlâ tıklanabilir kalıyor -- ama "Oyun Bul"
@@ -199,15 +225,20 @@
     if (highlightUsername && u.username.toLowerCase() === highlightUsername.toLowerCase()) {
       tr.className = 'highlighted-row';
     }
+    // Kullanıcı isteği: bu kategoride henüz 8 puanlı maç oynamamış bir
+    // oyuncunun sırasının sağ üstünde mavi bir "*" (ör. "1*"), puanının
+    // yanında da mavi bir "?" gösteriliyor -- bkz. rankMarkupHtml/
+    // ratingMarkupHtml yukarısı, u.provisional de store.js'deki
+    // leaderboard()'dan geliyor.
     const tdRank = document.createElement('td');
-    tdRank.textContent = u.rank;
+    tdRank.innerHTML = rankMarkupHtml(u.rank, u.provisional);
     const tdUser = document.createElement('td');
     tdUser.textContent = u.username;
     tdUser.className = 'username-cell';
     tdUser.title = I18N.t('lobby.playerSearchTitle');
     tdUser.addEventListener('click', () => openPlayerProfile(u.username));
     const tdRating = document.createElement('td');
-    tdRating.textContent = u.rating;
+    tdRating.innerHTML = ratingMarkupHtml(u.rating, u.provisional);
     const tdRecord = document.createElement('td');
     tdRecord.textContent = `${u.wins}/${u.losses}/${u.draws}`;
     tr.appendChild(tdRank);

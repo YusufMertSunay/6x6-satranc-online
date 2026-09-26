@@ -564,7 +564,7 @@ async function handleApi(req, res, pathname, url) {
       const user = store.createUser({ username, passwordHash, salt });
       const token = sessions.createSession(user.id);
       res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-      return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, language: user.language || 'tr' });
+      return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, provisional: store.provisionalMap(user), language: user.language || 'tr' });
     } catch (err) {
       return errJson(res, 400, err.message);
     }
@@ -578,7 +578,7 @@ async function handleApi(req, res, pathname, url) {
     }
     const token = sessions.createSession(user.id);
     res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
-    return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, language: user.language || 'tr' });
+    return sendJson(res, 200, { id: user.id, username: user.username, ratings: user.ratings, provisional: store.provisionalMap(user), language: user.language || 'tr' });
   }
 
   if (pathname === '/api/time-controls' && req.method === 'GET') {
@@ -648,6 +648,7 @@ async function handleApi(req, res, pathname, url) {
     return sendJson(res, 200, {
       username: target.username,
       ratings: target.ratings,
+      provisional: store.provisionalMap(target),
       wins: target.wins, losses: target.losses, draws: target.draws,
       activeGameId: gameManager.activeGameId(target.id),
     });
@@ -663,6 +664,7 @@ async function handleApi(req, res, pathname, url) {
   if (pathname === '/api/me' && req.method === 'GET') {
     return sendJson(res, 200, {
       id: user.id, username: user.username, ratings: user.ratings,
+      provisional: store.provisionalMap(user),
       wins: user.wins, losses: user.losses, draws: user.draws,
       language: user.language || 'tr',
     });
@@ -940,6 +942,13 @@ async function handleApi(req, res, pathname, url) {
         state.blackUsername = blackUser?.username || '?';
         state.whiteRating = whiteUser?.ratings?.[category] ?? 1500;
         state.blackRating = blackUser?.ratings?.[category] ?? 1500;
+        // Kullanıcı isteği: bu kategoride henüz 8 puanlı maç oynamamış
+        // oyuncunun puanının yanında mavi "?" gösterilsin -- bunun için de
+        // (rating'lerle aynı yerde) bir bayrak ekliyoruz. Kullanıcı hiç
+        // bulunamazsa (olmamalı) güvenli varsayılan: geçici değilmiş gibi
+        // davran (işaret gösterme).
+        state.whiteProvisional = whiteUser ? store.isProvisional(whiteUser, category) : false;
+        state.blackProvisional = blackUser ? store.isProvisional(blackUser, category) : false;
         return sendJson(res, 200, { live: true, state });
       }
       const finished = store.getGame(gameId);
@@ -953,6 +962,8 @@ async function handleApi(req, res, pathname, url) {
         const state = Object.assign({}, finished, {
           whiteRating: whiteUser?.ratings?.[category] ?? 1500,
           blackRating: blackUser?.ratings?.[category] ?? 1500,
+          whiteProvisional: whiteUser ? store.isProvisional(whiteUser, category) : false,
+          blackProvisional: blackUser ? store.isProvisional(blackUser, category) : false,
         });
         return sendJson(res, 200, { live: false, state });
       }
@@ -1070,6 +1081,8 @@ async function handleApi(req, res, pathname, url) {
         blackUsername: blackUser?.username || '?',
         whiteRating: whiteUser?.ratings?.[category] ?? 1500,
         blackRating: blackUser?.ratings?.[category] ?? 1500,
+        whiteProvisional: whiteUser ? store.isProvisional(whiteUser, category) : false,
+        blackProvisional: blackUser ? store.isProvisional(blackUser, category) : false,
         timeControlCategory: info.timeControlCategory,
         // İstemcinin, gezinilen her pozisyonda "o hamlede saatler ne
         // kadardı" gösterebilmesi için tüm saat geçmişi (bkz. gameManager.js).
