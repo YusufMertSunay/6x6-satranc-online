@@ -192,6 +192,14 @@
       </div>
       <p class="hint-text" id="profileRecordLine"></p>
 
+      <!-- Kullanıcı isteği: liderlik tablosundan ya da son oyunların
+           listesinden bir oyuncuya tıklayınca açılan bu pencerede, o
+           oyuncuya doğrudan özel oyun teklif edebilecek bir düğme de
+           olsun. Kendi profilinizde ya da hedef o an başka bir oyundayken
+           (zaten meydan okunamaz) bu düğme gizleniyor -- bkz. app.js:
+           renderProfileHeader. -->
+      <button type="button" class="primary" id="profileChallengeBtn" style="width:100%; margin-bottom:14px" data-i18n="lobby.profileChallengeBtn">Özel Oyun Teklif Et</button>
+
       <div class="hidden" id="profileActiveGameBanner" style="margin-bottom:14px">
         <div class="draw-offer-banner">
           <span data-i18n="lobby.profileLiveGameNotice">Şu an canlı bir oyunu var.</span>

@@ -353,6 +353,19 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 }
 .leaderboard-table td.username-cell:hover { color: var(--accent-hover); }
 
+/* Kullanıcı isteği: "Son Oyunların" listesindeki (hem kendi lobinizdeki
+   hem de oyuncu profili penceresinin içindeki mini oyun geçmişindeki)
+   rakip isimleri de tıklanabilir olsun -- üzerine tıklayınca o oyuncunun
+   profili açılıyor (bkz. app.js: buildOpponentNameSpan). Liderlik
+   tablosundaki .username-cell ile GÖRSEL olarak aynı (link gibi), ama
+   burası bir <td> değil bir <span> olduğu için ayrı, genel bir sınıf. */
+.clickable-username {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.clickable-username:hover { color: var(--accent-hover); }
+
 /* Profil penceresindeki mini liderlik tablosunda, incelenen oyuncunun
    KENDİ satırı diğerlerinden ayırt edilsin diye hafifçe vurgulanıyor. */
 .leaderboard-table tr.highlighted-row td {

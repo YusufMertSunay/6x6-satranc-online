@@ -103,6 +103,8 @@
       'lobby.playerSearchBtn': 'Ara',
       'lobby.profileLiveGameNotice': 'Şu an canlı bir oyunu var.',
       'lobby.profileWatchBtn': 'Seyirci Olarak İzle',
+      'lobby.profileChallengeBtn': 'Özel Oyun Teklif Et',
+      'lobby.profileChallengeAlreadyPending': 'Zaten bekleyen bir meydan okuman var. Önce onu iptal et ya da yanıtlanmasını bekle.',
       'result.wonThirdPerson': 'Kazandı',
       'result.lostThirdPerson': 'Kaybetti',
 
@@ -394,6 +396,8 @@
       'lobby.playerSearchBtn': 'Search',
       'lobby.profileLiveGameNotice': 'Currently in a live game.',
       'lobby.profileWatchBtn': 'Watch as Spectator',
+      'lobby.profileChallengeBtn': 'Send a Challenge',
+      'lobby.profileChallengeAlreadyPending': 'You already have a pending challenge. Cancel it or wait for a response first.',
       'result.wonThirdPerson': 'Won',
       'result.lostThirdPerson': 'Lost',
 

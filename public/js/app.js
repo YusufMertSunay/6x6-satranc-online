@@ -273,6 +273,29 @@
   // offset === undefined -> mevcut sayfayı (veya hiç yüklenmediyse
   //                          varsayılan/en yeni 10 oyunu) yeniden çiz.
   // offset === sayı       -> TAM o dilimi iste (düğmelerden biri tıklandığında).
+  // Oyun geçmişi listesindeki (hem kendi "Son Oyunların" listenizdeki hem
+  // de oyuncu profili penceresinin içindeki mini geçmişteki) rakip ismini
+  // tıklanabilir bir <span> olarak döndürür -- üzerine tıklayınca o
+  // oyuncunun profili açılır (kullanıcı isteği). e.stopPropagation()
+  // gerekli çünkü satırın (li) kendisi zaten tıklanınca oyuna gidiyor --
+  // isme tıklamanın o davranışı TETİKLEMEMESİ gerekiyor.
+  function buildOpponentNameSpan(username) {
+    if (!username) {
+      const span = document.createElement('span');
+      span.textContent = '?';
+      return span;
+    }
+    const span = document.createElement('span');
+    span.textContent = username;
+    span.className = 'clickable-username';
+    span.title = I18N.t('lobby.playerSearchTitle');
+    span.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPlayerProfile(username);
+    });
+    return span;
+  }
+
   async function loadMyGames(offset) {
     if (offset !== undefined) myGamesOffset = offset;
     // Oyun geçmişindeki rakiplerin hangilerinin ZATEN engellenmiş olduğunu
@@ -304,7 +327,9 @@
       const resultText = describeResult(g, meWhite);
 
       const left = document.createElement('span');
-      left.textContent = `vs ${oppName || '?'} (${g.timeControlKey})`;
+      left.appendChild(document.createTextNode('vs '));
+      left.appendChild(buildOpponentNameSpan(oppName));
+      left.appendChild(document.createTextNode(` (${g.timeControlKey})`));
 
       const right = document.createElement('span');
       right.className = 'game-history-right';
@@ -440,7 +465,31 @@
     } else {
       banner.classList.add('hidden');
     }
+    // Kullanıcı isteği: profil penceresinden doğrudan özel oyun teklif
+    // edebilme -- kendi profilinize (anlamsız) ya da O AN başka bir
+    // oyunda olan birine (zaten sunucu da reddeder, bkz. OPPONENT_IN_GAME)
+    // meydan okuma düğmesini baştan gizliyoruz.
+    const isSelf = currentUser && info.username.toLowerCase() === currentUser.username.toLowerCase();
+    $('profileChallengeBtn').classList.toggle('hidden', isSelf || !!info.activeGameId);
   }
+
+  // Profil penceresindeki "Özel Oyun Teklif Et" düğmesi -- var olan
+  // "Bir Oyuncuya Meydan Oku" formunu (renk/puanlı-puansız/süre kontrolü
+  // seçimiyle birlikte) TEKRAR YAZMAK yerine, pencereyi kapatıp o formun
+  // kullanıcı adı alanını dolduruyor ve forma kaydırıyor -- kullanıcı
+  // istediği ayarları seçip kendi "Meydan Oku" düğmesine basıyor.
+  $('profileChallengeBtn').addEventListener('click', () => {
+    if (!profileUsername) return;
+    if (outgoingChallenge) {
+      alert(I18N.t('lobby.profileChallengeAlreadyPending'));
+      return;
+    }
+    const targetUsername = profileUsername;
+    closePlayerProfile();
+    $('challengeUsername').value = targetUsername;
+    $('challengeForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('challengeUsername').focus();
+  });
 
   $('playerSearchForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -523,7 +572,9 @@
       const targetIsWhite = (g.whiteUsername || '').toLowerCase() === profileUsername.toLowerCase();
       const oppName = targetIsWhite ? g.blackUsername : g.whiteUsername;
       const left = document.createElement('span');
-      left.textContent = `vs ${oppName || '?'} (${g.timeControlKey})`;
+      left.appendChild(document.createTextNode('vs '));
+      left.appendChild(buildOpponentNameSpan(oppName));
+      left.appendChild(document.createTextNode(` (${g.timeControlKey})`));
       const right = document.createElement('span');
       right.textContent = describeResultThirdPerson(g, targetIsWhite);
       li.appendChild(left);
