@@ -90,7 +90,22 @@
       <button class="secondary" id="openAnalysisBtn" type="button" data-i18n="game.openAnalysis">Analiz Tahtasını Aç</button>
     </div>
 
-    <div class="moves-box" id="movesBox"></div>
+    <!-- Kullanıcı isteği: hamle geçmişinde gezinme -- bkz. game.js: viewPly/
+         syncDisplayPosition. Notasyondaki bir hamleye tıklanınca (ya da sol/
+         sağ ok tuşlarıyla) tahta o andaki pozisyona döner, ANCAK bu SALT
+         OKUNUR bir görünüm -- oradan asla yeni bir hamle yapılamaz (bkz.
+         onSquareClick/onSquarePointerDown: isLive() kontrolü). -->
+    <div class="hidden draw-offer-banner" id="historyViewBanner">
+      <span data-i18n="game.historyViewing">Geçmiş bir pozisyonu görüntülüyorsun -- yeni bir hamle yapamazsın.</span>
+      <div style="display:flex; gap:6px">
+        <button class="primary" id="backToLiveBtn" type="button" data-i18n="game.backToLive">Canlıya Dön</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="hint-text" style="margin-bottom:4px" data-i18n="analysis.movesHint">Oyunun hamleleri (tıklayınca o ana gider):</div>
+      <div class="moves-box" id="movesBox"></div>
+    </div>
 
     <div class="hidden action-row" id="cancelActionRow">
       <button class="danger" id="cancelGameBtn" type="button" data-i18n="game.cancelGame">Oyunu İptal Et</button>

@@ -75,6 +75,27 @@
   let premove = null; // { from: 'd2', to: 'd4' } | null
   let premoveDests = []; // seçili taş için İSTEMCİ TARAFINDA hesaplanan aday hedefler ([{r,c}, ...])
   let clockTimer = null;
+
+  // ---------------- Hamle geçmişinde gezinme (kullanıcı isteği) ----------------
+  // Notasyondaki bir hamleye tıklanınca (ya da sol/sağ ok tuşlarıyla) tahta,
+  // o hamle oynandığı andaki pozisyona döner -- ANCAK bu SALT OKUNUR bir
+  // görünüm: viewingPly null değilken onSquareClick/onSquarePointerDown hiçbir
+  // şey yapmaz (bkz. isLive()), böylece geçmişten ASLA yeni bir hamle
+  // oynatılamaz. viewingPly === null -> canlı (gerçek) pozisyon gösteriliyor;
+  // bir sayı ise -> o kadar yarı-hamle uygulanmış hâli gösteriliyor (0 =
+  // başlangıç pozisyonu). movesUci sadece EKLENEREK büyüdüğü için (asla
+  // geriye dönük değişmediği için) bir ply'ın pozisyonu sonsuza kadar
+  // geçerli kalıyor -- plyPositionCache bu yüzden hiç temizlenmiyor.
+  let viewingPly = null;
+  let viewGeneration = 0;
+  const plyPositionCache = new Map(); // ply -> { fen, inCheck }
+  // Tahtanın o an GERÇEKTEN çizdiği pozisyon -- canlıyken state.currentFen ile
+  // birebir aynı, geçmiş gösterilirken plyPositionCache'ten (ya da sunucudan)
+  // gelen tarihi pozisyon.
+  let displayFen = null;
+  let displayInCheck = false;
+  let displayLastFrom = null;
+  let displayLastTo = null;
   let sse = null;
   // Kullanıcı KENDİSİ "Oyunu İptal Et" butonuna bastığında, sunucudan gelen
   // 'game_cancelled' SSE olayı (bu, hem beyaza hem siyaha -- yani KENDİSİNE
@@ -314,14 +335,23 @@
   }
 
   function renderBoard() {
-    const grid = fenToGrid(state.currentFen);
-    const lastMove = state.movesUci.length ? state.movesUci[state.movesUci.length - 1] : null;
-    let lastFrom = null, lastTo = null;
-    if (lastMove) {
-      lastFrom = lastMove.slice(0, 2);
-      lastTo = lastMove.slice(2, 4);
-    }
-    const checkedKing = state.inCheck ? findCheckedKingSquare(grid, state.currentFen) : null;
+    // Kullanıcı isteği (hamle geçmişinde gezinme): tahta artık HER ZAMAN
+    // state.currentFen'i değil, "o an gösterilmesi gereken" pozisyonu
+    // (displayFen -- canlıyken state.currentFen ile birebir aynı, geçmiş
+    // gösterilirken görüntülenen ply'ın pozisyonu) çiziyor -- bkz.
+    // syncDisplayPosition(). displayFen henüz hiç ayarlanmadıysa (ilk render
+    // öncesi bir yarış durumu) güvenli bir yedek olarak state.currentFen
+    // kullanılıyor.
+    const fen = displayFen || state.currentFen;
+    const grid = fenToGrid(fen);
+    const lastFrom = displayLastFrom, lastTo = displayLastTo;
+    const checkedKing = displayInCheck ? findCheckedKingSquare(grid, fen) : null;
+    // Etkileşim vurguları (seçili kare/yasal hedef/ön-hamle) SADECE canlı
+    // pozisyon gösterilirken anlamlı -- geçmiş görüntülenirken zaten hiçbir
+    // seçim yapılamaz (bkz. isLive() kontrolü: onSquareClick/
+    // onSquarePointerDown), ama tahtanın da bunu YANLIŞLIKLA göstermemesi
+    // için burada da ayrıca (savunmacı) gizliyoruz.
+    const live = isLive();
 
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
@@ -335,22 +365,110 @@
           : '';
 
         const sq = squareName(r, c);
-        el.classList.toggle('selected', selected === sq);
+        el.classList.toggle('selected', live && selected === sq);
         el.classList.toggle('last-move', sq === lastFrom || sq === lastTo);
         el.classList.toggle('in-check', !!checkedKing && checkedKing.r === r && checkedKing.c === c);
 
-        const isLegalDest = myTurn() && selected && legalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
+        const isLegalDest = live && myTurn() && selected && legalMoves.some(m => m.startsWith(selected) && m.slice(2, 4) === sq);
         el.classList.toggle('legal-dest', !!isLegalDest);
 
         // Ön-hamle (premove) görselleri: aday hedef kareler (henüz kuyruğa
         // alınmamış, seçim aşamasında) VE zaten kuyruğa alınmış tam bir
         // ön-hamlenin kaynak/hedef karesi -- bkz. handlePremoveClick /
         // onDocumentPointerUp / tryExecutePremove.
-        const isPremoveDest = !myTurn() && selected && premoveDests.some(d => d.r === r && d.c === c);
+        const isPremoveDest = live && !myTurn() && selected && premoveDests.some(d => d.r === r && d.c === c);
         el.classList.toggle('premove-dest', !!isPremoveDest);
-        el.classList.toggle('premove-square', !!premove && (sq === premove.from || sq === premove.to));
+        el.classList.toggle('premove-square', live && !!premove && (sq === premove.from || sq === premove.to));
       }
     }
+  }
+
+  // Şu an CANLI (gerçek/güncel) pozisyon mu gösteriliyor, yoksa geçmişte bir
+  // ply mi görüntüleniyor? viewingPly, o an bilinen son yarı-hamleye EŞİT ya
+  // da ondan büyükse de canlı sayılır (ör. bir hamlenin ortasında kısa bir an
+  // için oluşabilecek tutarsızlığa karşı savunmacı).
+  function isLive() {
+    return viewingPly === null || viewingPly >= (state.movesUci ? state.movesUci.length : 0);
+  }
+
+  // ply'dan (kaç yarı-hamle uygulanmış) o pozisyondaki "son hamle" kare
+  // çiftini hesaplar -- tahtada altın renkli last-move vurgusu için.
+  function lastMoveSquaresAtPly(ply) {
+    if (!ply || ply <= 0) return { from: null, to: null };
+    const mv = state.movesUci[ply - 1];
+    if (!mv) return { from: null, to: null };
+    return { from: mv.slice(0, 2), to: mv.slice(2, 4) };
+  }
+
+  function renderHistoryBanner() {
+    const banner = $('historyViewBanner');
+    if (banner) banner.classList.toggle('hidden', isLive());
+  }
+
+  // Kullanıcı isteği: hamle geçmişinde gezinme -- görüntülenen pozisyonu
+  // (displayFen/displayInCheck/displayLastFrom/displayLastTo) günceller.
+  // Canlıyken bu ANINDA (senkron) olur; geçmiş bir ply gösterilirken
+  // pozisyon sunucudan (ya da önbellekten) isteniyor -- bu yüzden fonksiyon
+  // async. Kullanıcı isteği hızlıca değiştirirse (ör. ok tuşuna art arda
+  // basarsa) eski/gecikmiş bir cevabın ekranı YANLIŞLIKLA güncellememesi
+  // için viewGeneration ile en son isteğin dışındaki tüm cevaplar elenir
+  // (analysis.js'deki AYNI 'generation' deseniyle tutarlı).
+  async function syncDisplayPosition() {
+    const myGen = ++viewGeneration;
+    renderHistoryBanner();
+
+    if (isLive()) {
+      displayFen = state.currentFen;
+      displayInCheck = !!state.inCheck;
+      const lm = lastMoveSquaresAtPly(state.movesUci.length);
+      displayLastFrom = lm.from;
+      displayLastTo = lm.to;
+      renderBoard();
+      renderMoves();
+      return;
+    }
+
+    const ply = viewingPly;
+    let pos = plyPositionCache.get(ply);
+    if (!pos) {
+      try {
+        const resp = await api('POST', '/api/free-analysis-position', { moves: state.movesUci.slice(0, ply) });
+        pos = { fen: resp.fen, inCheck: !!resp.inCheck };
+        plyPositionCache.set(ply, pos);
+      } catch {
+        // Ağ hatası vb. -- en azından bir şey göstermeye devam edelim.
+        pos = { fen: state.currentFen, inCheck: !!state.inCheck };
+      }
+    }
+    if (myGen !== viewGeneration) return; // bu sırada başka bir ply'a geçildi, bu cevabı yoksay
+
+    displayFen = pos.fen;
+    displayInCheck = pos.inCheck;
+    const lm = lastMoveSquaresAtPly(ply);
+    displayLastFrom = lm.from;
+    displayLastTo = lm.to;
+    renderBoard();
+    renderMoves();
+  }
+
+  // Notasyonda bir hamleye tıklanınca (ya da klavyeyle) çağrılır. ply, kaç
+  // yarı-hamle uygulanmış hâli göstereceğimizi belirtir -- bilinen son
+  // ply'a (ya da ötesine) gidilirse otomatik olarak canlıya (viewingPly=null)
+  // dönülür.
+  function viewPly(ply) {
+    if (!state) return;
+    const total = (state.movesUci || []).length;
+    viewingPly = ply >= total ? null : Math.max(0, ply);
+    selected = null;
+    premoveDests = [];
+    syncDisplayPosition();
+  }
+
+  function goLive() {
+    viewingPly = null;
+    selected = null;
+    premoveDests = [];
+    syncDisplayPosition();
   }
 
   // ---------------- Etkileşim ----------------
@@ -410,6 +528,10 @@
 
   async function onSquareClick(r, c) {
     if (!state || state.status !== 'active') return;
+    // Kullanıcı isteği: geçmiş bir pozisyon görüntülenirken (bkz. viewPly)
+    // tahta SALT OKUNUR -- buradan ASLA yeni bir hamle yapılamaz/seçim
+    // başlatılamaz.
+    if (!isLive()) return;
     const sq = squareName(r, c);
     const grid = fenToGrid(state.currentFen);
     const piece = grid[r][c];
@@ -506,6 +628,9 @@
     // gibi algılanabiliyordu.
     if (e.button !== 0) return;
     if (!state || state.status !== 'active') return;
+    // Kullanıcı isteği: geçmiş bir pozisyon görüntülenirken sürükleme de
+    // başlatılamaz (bkz. onSquareClick'teki aynı kontrol).
+    if (!isLive()) return;
     const grid = fenToGrid(state.currentFen);
     const piece = grid[r][c];
     if (!pieceBelongsToMe(piece)) return;
@@ -931,13 +1056,45 @@
     // Gerçek cebirsel gösterim (SAN — ör. "exf4", "Qa5", "Bxb2", "O-O-O",
     // "Nf3+") sunucu tarafında hesaplanıp state.sanMoves içinde geliyor.
     const sanMoves = state.sanMoves || [];
+    // Kullanıcı isteği: her hamle artık tıklanabilir -- tıklanınca tahta o
+    // hamle oynandığı andaki (SALT OKUNUR) pozisyona gidiyor (bkz. viewPly).
+    // Şu an görüntülenen hamle (canlıyken SONUNCUSU, geçmiş gösterilirken
+    // viewingPly'a karşılık gelen) "current-move" sınıfıyla vurgulanıyor --
+    // analiz tahtasındaki (analysis.js) AYNI görsel dille tutarlı.
+    const highlightIdx = isLive() ? (sanMoves.length - 1) : (viewingPly - 1);
     let html = '';
     for (let i = 0; i < sanMoves.length; i += 2) {
       const num = i / 2 + 1;
-      html += `<div class="move-pair"><span class="move-num">${num}.</span><span>${sanMoves[i]}</span><span>${sanMoves[i + 1] || ''}</span></div>`;
+      const whiteCls = 'san-move' + (i === highlightIdx ? ' current-move' : '');
+      const blackIdx = i + 1;
+      const hasBlack = sanMoves[blackIdx] !== undefined;
+      const blackCls = 'san-move' + (hasBlack && blackIdx === highlightIdx ? ' current-move' : '');
+      html += `<div class="move-pair"><span class="move-num">${num}.</span>`
+        + `<span class="${whiteCls}" data-idx="${i}">${sanMoves[i]}</span>`
+        + (hasBlack ? `<span class="${blackCls}" data-idx="${blackIdx}">${sanMoves[blackIdx]}</span>` : '<span></span>')
+        + `</div>`;
     }
     box.innerHTML = html;
-    box.scrollTop = box.scrollHeight;
+    box.querySelectorAll('span[data-idx]').forEach(span => {
+      span.addEventListener('click', () => viewPly(parseInt(span.dataset.idx, 10) + 1));
+    });
+
+    // ÖNEMLİ: Element.scrollIntoView() KASITLI OLARAK KULLANILMIYOR (bkz.
+    // analysis.js: renderMoveTree'deki AYNI açıklama) -- bunun yerine sadece
+    // bu kutunun kendi scrollTop'unu, vurgulanan hamlenin kutu içindeki
+    // konumuna göre elle ayarlıyoruz.
+    const curEl = box.querySelector('.current-move');
+    if (curEl) {
+      const boxRect = box.getBoundingClientRect();
+      const elRect = curEl.getBoundingClientRect();
+      if (elRect.top < boxRect.top) {
+        box.scrollTop -= (boxRect.top - elRect.top);
+      } else if (elRect.bottom > boxRect.bottom) {
+        box.scrollTop += (elRect.bottom - boxRect.bottom);
+      }
+    } else {
+      box.scrollTop = box.scrollHeight;
+    }
   }
 
   function resultReasonText(reason) {
@@ -1192,10 +1349,13 @@
       selected = null;
       premoveDests = [];
     }
-    renderBoard();
+    // renderBoard()/renderMoves() artık syncDisplayPosition() üzerinden
+    // çağrılıyor -- o fonksiyon "canlı" mı yoksa geçmişte bir pozisyon mu
+    // gösterildiğine bakıp doğru FEN'i (gerekirse sunucudan) alıp ikisini
+    // de günceller (bkz. viewPly/goLive/isLive).
+    syncDisplayPosition();
     renderStatus();
     renderUnrankedTag();
-    renderMoves();
     renderGameOverBanner();
     renderDrawOfferBanner();
     renderRematchUI();
@@ -1204,8 +1364,15 @@
   }
 
   // Gelen kısmi güncellemeleri (SSE game_over gibi) mevcut duruma yedirir.
+  // Kullanıcı isteği: hamle geçmişinde geziniyorken (isLive() === false) yeni
+  // bir hamle gelirse tahtayı OLDUĞU gibi (geçmiş görünümde) bırakıyoruz --
+  // ama merge ÖNCESİNDE zaten "canlı" izliyorsak (viewingPly === null ya da
+  // son hamledeysek), yeni hamle geldiğinde otomatik olarak canlıyı takip
+  // etmeye devam etmeliyiz (viewingPly'ı null'a sıfırlayarak).
   function mergeState(partial) {
+    const wasLive = isLive();
     state = Object.assign({}, state, partial);
+    if (wasLive) viewingPly = null;
   }
 
   // ---------------- Butonlar ----------------
@@ -1242,6 +1409,10 @@
       renderAll();
     } catch (err) { alert(I18N.tErr(err)); }
   });
+
+  // Kullanıcı isteği: hamle geçmişinde gezinirken ("salt okunur" görünüm)
+  // tek tıkla tekrar canlı pozisyona dönebilme düğmesi.
+  $('backToLiveBtn').addEventListener('click', () => goLive());
 
   $('cancelGameBtn').addEventListener('click', async () => {
     if (!confirm(I18N.t('game.confirmCancel'))) return;
@@ -1515,6 +1686,75 @@
     if (state) { renderPlayerNames(); renderAll(); }
     renderBlockOpponentButton();
     if (window.ChatUI) ChatUI.refreshTexts();
+  });
+
+  // ---------------- Klavyeden hamle gezinme (sol/sağ ok) ----------------
+  // Kullanıcı isteği: sol ok = bir hamle geri, sağ ok = bir hamle ileri;
+  // ok tuşu 1,5 saniye basılı tutulursa sırasıyla en başa / canlıya (en
+  // sona) atla. Sohbet kutusuna (veya başka bir input'a) yazarken bu
+  // tuşlar ASLA yakalanmamalı -- bkz. isTypingTarget().
+  function isTypingTarget() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+  }
+
+  const ARROW_HOLD_MS = 1500;
+  let arrowHoldTimer = null;
+  let arrowHoldFired = false;
+  let arrowHoldKey = null;
+
+  function stepBack() {
+    if (!state) return;
+    const cur = isLive() ? state.movesUci.length : viewingPly;
+    viewPly(cur - 1);
+  }
+  function stepForward() {
+    if (!state) return;
+    const cur = isLive() ? state.movesUci.length : viewingPly;
+    viewPly(cur + 1);
+  }
+  function jumpToStart() {
+    viewPly(0);
+  }
+  function jumpToLive() {
+    goLive();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (isTypingTarget()) return;
+    if (!state) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+
+    if (e.key === 'Home') { jumpToStart(); return; }
+    if (e.key === 'End') { jumpToLive(); return; }
+
+    // OS'un otomatik tekrarlayan keydown olaylarını yok sayıyoruz -- sadece
+    // fiziksel ilk basışta zamanlayıcı kuruyoruz (basılı tutma algılaması).
+    if (e.repeat) return;
+
+    arrowHoldKey = e.key;
+    arrowHoldFired = false;
+    if (arrowHoldTimer) clearTimeout(arrowHoldTimer);
+    arrowHoldTimer = setTimeout(() => {
+      arrowHoldFired = true;
+      if (arrowHoldKey === 'ArrowLeft') jumpToStart();
+      else if (arrowHoldKey === 'ArrowRight') jumpToLive();
+    }, ARROW_HOLD_MS);
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (arrowHoldTimer) { clearTimeout(arrowHoldTimer); arrowHoldTimer = null; }
+    if (e.key !== arrowHoldKey) return;
+    if (!arrowHoldFired) {
+      if (e.key === 'ArrowLeft') stepBack();
+      else stepForward();
+    }
+    arrowHoldKey = null;
+    arrowHoldFired = false;
   });
 
   initBoardColorSettings();

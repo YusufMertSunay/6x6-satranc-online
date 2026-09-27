@@ -199,6 +199,10 @@
       'game.opponentThinking': 'Rakip düşünüyor...',
       'game.newRatingLine': 'Yeni {category} puanın: {rating}',
 
+      // ---- Hamle geçmişinde gezinme (kullanıcı isteği) ----
+      'game.historyViewing': 'Geçmiş bir pozisyonu görüntülüyorsun -- yeni bir hamle yapamazsın.',
+      'game.backToLive': 'Canlıya Dön',
+
       // ---- İlk hamle süresi / oyun iptali (kullanıcı isteği) ----
       'game.cancelGame': 'Oyunu İptal Et',
       'game.confirmCancel': 'Oyunu iptal etmek istediğine emin misin?',
@@ -540,6 +544,10 @@
       'game.yourTurn': 'Your turn',
       'game.opponentThinking': 'Opponent is thinking...',
       'game.newRatingLine': 'Your new {category} rating: {rating}',
+
+      // ---- Move history navigation (user request) ----
+      'game.historyViewing': "You're viewing a past position -- you can't make a new move.",
+      'game.backToLive': 'Back to Live',
 
       // ---- First-move deadline / game cancellation ----
       'game.cancelGame': 'Cancel Game',

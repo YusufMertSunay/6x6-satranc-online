@@ -998,18 +998,18 @@
   // "ileri" geçmişi gibi) taşır -- böylece İleri'ye basılınca aynı yoldan
   // adım adım (ya da doğrudan Sona ile tek seferde) geri dönülebilir; hiçbir
   // varyant KAYBOLMAZ.
-  $('navStartBtn').addEventListener('click', () => {
+  function goToStart() {
     while (currentPath.length) redoStack.push(currentPath.pop());
     selected = null;
     refreshPosition();
-  });
-  $('navBackBtn').addEventListener('click', () => {
+  }
+  function goBack() {
     if (currentPath.length === 0) return;
     redoStack.push(currentPath.pop());
     selected = null;
     refreshPosition();
-  });
-  $('navForwardBtn').addEventListener('click', () => {
+  }
+  function goForward() {
     if (redoStack.length) {
       currentPath.push(redoStack.pop());
     } else {
@@ -1019,12 +1019,12 @@
     }
     selected = null;
     refreshPosition();
-  });
+  }
   // Sona (End): redoStack'te bir "ileri" geçmişi varsa TAMAMINI geri
   // uygulayarak oradan devam eder; yoksa (taze bir dal ya da hiç geri
   // gidilmemiş) şu anki pozisyondan itibaren ana hattı (her düğümün ilk
   // çocuğu) sonuna kadar takip eder.
-  $('navEndBtn').addEventListener('click', () => {
+  function goToEnd() {
     if (redoStack.length) {
       while (redoStack.length) currentPath.push(redoStack.pop());
     } else {
@@ -1038,7 +1038,12 @@
     }
     selected = null;
     refreshPosition();
-  });
+  }
+
+  $('navStartBtn').addEventListener('click', goToStart);
+  $('navBackBtn').addEventListener('click', goBack);
+  $('navForwardBtn').addEventListener('click', goForward);
+  $('navEndBtn').addEventListener('click', goToEnd);
   // Değerlendirme çubuğu (eval bar) da tahtayla aynı yönde dursun diye —
   // tahta çevrilince (siyah altta gösterilince) çubuk da ters dönüp beyaz
   // üstte, siyah altta görünür (bkz. style.css: .eval-bar-container.flipped).
@@ -1387,44 +1392,55 @@
     $('engineOffBtn').classList.toggle('active', !engineEnabled);
   }
 
+  function enableEngine() {
+    if (engineEnabled) return;
+    engineEnabled = true;
+    try { localStorage.setItem('analysisEngineEnabled', '1'); } catch { }
+    updateEngineToggleUI();
+    // Motor yeniden açılınca, o an ekranda duran pozisyon için hemen bir
+    // değerlendirme isteği gönderiyoruz -- kullanıcı ayrıca bir hamle
+    // yapmak/gezinmek zorunda kalmasın.
+    if (currentFen) {
+      const myGen = ++generation;
+      requestEvalForCurrentPosition(myGen, movesForPath(currentPath));
+    }
+  }
+
+  function disableEngine() {
+    if (!engineEnabled) return;
+    engineEnabled = false;
+    try { localStorage.setItem('analysisEngineEnabled', '0'); } catch { }
+    updateEngineToggleUI();
+    // Sürmekte olan bir değerlendirme isteği varsa iptal ediyoruz (motoru
+    // sunucuda boşuna meşgul etmemek için) ve en iyi hamle okunu (mavi ok)
+    // kullanıcı isteğiyle HEMEN siliyoruz.
+    ++generation;
+    if (currentEvalAbort) {
+      try { currentEvalAbort.abort(); } catch { /* zaten bitmiş olabilir */ }
+      currentEvalAbort = null;
+    }
+    bestMoveHighlight = null;
+    drawBestMoveArrow();
+    $('evalLabel').textContent = I18N.t('analysis.engineDisabled');
+    $('pvBox').textContent = '-';
+  }
+
+  // Kullanıcı isteği: klavyeden 'l' tuşu ile motoru aç/kapa (bkz. aşağıdaki
+  // keydown dinleyicisi) -- burada TEK bir yerden hem düğmeler hem de kısayol
+  // aynı enableEngine/disableEngine fonksiyonlarını kullanıyor.
+  function toggleEngine() {
+    if (engineEnabled) disableEngine();
+    else enableEngine();
+  }
+
   function initEngineToggle() {
     try {
       engineEnabled = localStorage.getItem('analysisEngineEnabled') !== '0';
     } catch { /* localStorage kapalı/engelliyse motor varsayılan olarak açık kalır */ }
     updateEngineToggleUI();
 
-    $('engineOnBtn').addEventListener('click', () => {
-      if (engineEnabled) return;
-      engineEnabled = true;
-      try { localStorage.setItem('analysisEngineEnabled', '1'); } catch { }
-      updateEngineToggleUI();
-      // Motor yeniden açılınca, o an ekranda duran pozisyon için hemen bir
-      // değerlendirme isteği gönderiyoruz -- kullanıcı ayrıca bir hamle
-      // yapmak/gezinmek zorunda kalmasın.
-      if (currentFen) {
-        const myGen = ++generation;
-        requestEvalForCurrentPosition(myGen, movesForPath(currentPath));
-      }
-    });
-
-    $('engineOffBtn').addEventListener('click', () => {
-      if (!engineEnabled) return;
-      engineEnabled = false;
-      try { localStorage.setItem('analysisEngineEnabled', '0'); } catch { }
-      updateEngineToggleUI();
-      // Sürmekte olan bir değerlendirme isteği varsa iptal ediyoruz (motoru
-      // sunucuda boşuna meşgul etmemek için) ve en iyi hamle okunu (mavi ok)
-      // kullanıcı isteğiyle HEMEN siliyoruz.
-      ++generation;
-      if (currentEvalAbort) {
-        try { currentEvalAbort.abort(); } catch { /* zaten bitmiş olabilir */ }
-        currentEvalAbort = null;
-      }
-      bestMoveHighlight = null;
-      drawBestMoveArrow();
-      $('evalLabel').textContent = I18N.t('analysis.engineDisabled');
-      $('pvBox').textContent = '-';
-    });
+    $('engineOnBtn').addEventListener('click', enableEngine);
+    $('engineOffBtn').addEventListener('click', disableEngine);
   }
 
   // ---------------- Tahta renkleri (oyun sayfasıyla aynı, ortak ayar) ----------------
@@ -1721,6 +1737,71 @@
     renderRematchUi();
     renderBlockOpponentButton();
     if (window.ChatUI) ChatUI.refreshTexts();
+  });
+
+  // ---------------- Klavyeden hamle gezinme (sol/sağ ok) ve motor aç/kapa ('l') ----------------
+  // Kullanıcı isteği: hem oyundan sonraki analiz tahtasında hem de oyunsuz
+  // (serbest) analiz tahtasında -- bu dosya (analysis.js) her ikisini de
+  // freeMode bayrağıyla ele aldığı için TEK bir kurulum yeterli. Sol ok = bir
+  // hamle geri, sağ ok = bir hamle ileri; 1,5 saniye basılı tutulursa
+  // sırasıyla en başa / en sona (sondaki varyanta) atlar. 'l' tuşu motoru
+  // aç/kapa yapar. Sohbet kutusuna yazarken bu tuşlar ASLA yakalanmamalı --
+  // bkz. isTypingTarget() (game.js'teki aynı yardımcı fonksiyonun kopyası,
+  // bu dosyada bağımsız çalışabilmesi için tekrar tanımlandı).
+  function isTypingTarget() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+  }
+
+  const ARROW_HOLD_MS = 1500;
+  let arrowHoldTimer = null;
+  let arrowHoldFired = false;
+  let arrowHoldKey = null;
+
+  document.addEventListener('keydown', (e) => {
+    if (isTypingTarget()) return;
+
+    if (e.key === 'l' || e.key === 'L') {
+      // Ctrl/Cmd/Alt ile birlikte basılmışsa (ör. bir tarayıcı kısayolu)
+      // karışmayalım -- sadece yalın 'l' motoru aç/kapa yapsın.
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      toggleEngine();
+      return;
+    }
+
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+
+    if (e.key === 'Home') { goToStart(); return; }
+    if (e.key === 'End') { goToEnd(); return; }
+
+    // OS'un otomatik tekrarlayan keydown olaylarını yok sayıyoruz -- sadece
+    // fiziksel ilk basışta zamanlayıcı kuruyoruz (basılı tutma algılaması).
+    if (e.repeat) return;
+
+    arrowHoldKey = e.key;
+    arrowHoldFired = false;
+    if (arrowHoldTimer) clearTimeout(arrowHoldTimer);
+    arrowHoldTimer = setTimeout(() => {
+      arrowHoldFired = true;
+      if (arrowHoldKey === 'ArrowLeft') goToStart();
+      else if (arrowHoldKey === 'ArrowRight') goToEnd();
+    }, ARROW_HOLD_MS);
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (arrowHoldTimer) { clearTimeout(arrowHoldTimer); arrowHoldTimer = null; }
+    if (e.key !== arrowHoldKey) return;
+    if (!arrowHoldFired) {
+      if (e.key === 'ArrowLeft') goBack();
+      else goForward();
+    }
+    arrowHoldKey = null;
+    arrowHoldFired = false;
   });
 
   initBoardColorSettings();
