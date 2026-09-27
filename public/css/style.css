@@ -59,6 +59,21 @@ header.topbar h1 {
 
 header.topbar h1 .accent { color: var(--accent); }
 
+/* Kullanıcı isteği (pazarlama için logo): site başlığındaki metnin yanına
+   marka rozeti (kale silüetli ikon) -- bkz. public/images/brand/logo-mark.svg
+   ve KURULUM-TALIMATLARI'ndaki logo güncellemesi. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-icon {
+  width: 34px;
+  height: 34px;
+  display: block;
+  flex: none;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;

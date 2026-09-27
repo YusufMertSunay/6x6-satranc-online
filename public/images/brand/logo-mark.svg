@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 6x6 Satranç Online marka rozeti: kale (rook) silüeti.
+       Renkler sitenin mevcut CSS değişkenleriyle (bg / accent) birebir aynı,
+       bkz. public/css/style.css. -->
+  <rect width="512" height="512" rx="96" ry="96" fill="#262421"/>
+  <g transform="translate(106,106) scale(3)">
+    <path d="M26,12 L34,12 L34,20 L46,20 L46,12 L54,12 L54,20 L66,20 L66,12 L74,12 L74,26 L62,40 L68,60 L78,72 L78,88 L84,92 L16,92 L22,88 L22,72 L32,60 L38,40 L26,26 Z" fill="#7fa650"/>
+  </g>
+</svg>
