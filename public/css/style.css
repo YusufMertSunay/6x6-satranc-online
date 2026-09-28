@@ -926,11 +926,16 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
     justify-content: flex-end;
     row-gap: 8px;
   }
+  /* Kullanıcı isteği: dar ekranlarda bu bildirim SOL ALTTAKİ "Arkadaşlarım"
+     düğmesiyle (.social-friends-btn, aşağıda ~satır 1198'de aynı "left:10px;
+     bottom:10px" köşesine sabitleniyor) çakışıyordu -- burada "left" ARTIK
+     hiç verilmiyor, böylece taşma önlensin diye sadece genişliği (max-width)
+     daraltılıyor ama bildirim her zaman SAĞ ALTA (right/bottom) sabit kalıyor,
+     nereye gitmeyeceği köşeye asla kaymıyor. */
   .challenge-toast {
-    left: 10px;
     right: 10px;
     bottom: 10px;
-    max-width: none;
+    max-width: calc(100% - 20px);
   }
 }
 
@@ -1074,7 +1079,11 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
   right: 20px;
   bottom: 20px;
   max-width: 380px;
-  z-index: 60;
+  /* Kullanıcı isteği: bu bildirim (kabul/reddet gerektiren, zamana duyarlı
+     bir davet) çok dar ekranlarda "Arkadaşlarım" düğmesiyle (z-index: 70)
+     aynı alt köşeye denk gelebiliyor -- üst üste geldiği o uç durumda bile
+     bildirim ALTTA KALIP gizlenmesin diye z-index'i düğmeden yüksek. */
+  z-index: 80;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   border-radius: 8px;
 }
