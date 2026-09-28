@@ -1028,6 +1028,11 @@
         // şekilde göstermeliyiz.
         if (data.reason === 'logged_out') {
           alert(I18N.t('lobby.challengeCancelledDueToLogout', { username }));
+        } else if (data.reason === 'blocked') {
+          // Kullanıcı isteği: hedef teklifi reddetmek yerine seni ENGELLEDİYSE
+          // (bkz. gameManager.js: blockUser) bunu da bir "ret" gibi değil,
+          // doğru şekilde göstermeliyiz.
+          alert(I18N.t('lobby.challengeCancelledDueToBlock', { username }));
         } else {
           alert(I18N.t('lobby.challengeDeclinedByTarget', { username }));
         }
