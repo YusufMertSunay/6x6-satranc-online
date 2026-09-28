@@ -932,8 +932,18 @@
   document.addEventListener('mousemove', (e) => {
     if (!rightDragState) return;
     const cur = squareFromPoint(e.clientX, e.clientY);
-    if (cur && (cur.r !== rightDragState.fromR || cur.c !== rightDragState.fromC)) {
-      if (isValidPieceShape(rightDragState.fromR, rightDragState.fromC, cur.r, cur.c)) {
+    if (cur) {
+      if (cur.r === rightDragState.fromR && cur.c === rightDragState.fromC) {
+        // Kullanıcı isteği: sağ tıkla sürüklerken başladığı kareye GERİ
+        // dönerse (lichess'teki gibi) artık ok değil, o karede bir çember
+        // gösterilmeli -- "moved" bayrağını burada canlı olarak false'a
+        // geri alıyoruz (önceden bir kez true olunca hep true kalıyordu,
+        // bu da başlangıç karesine dönülse bile son ziyaret edilen kareye
+        // bir ok "yapışıp" kalmasına yol açıyordu).
+        rightDragState.lastR = rightDragState.fromR;
+        rightDragState.lastC = rightDragState.fromC;
+        rightDragState.moved = false;
+      } else if (isValidPieceShape(rightDragState.fromR, rightDragState.fromC, cur.r, cur.c)) {
         rightDragState.lastR = cur.r;
         rightDragState.lastC = cur.c;
         rightDragState.moved = true;
@@ -944,7 +954,7 @@
     renderAnnotations(rightDragState.moved ? {
       type: 'arrow', fromR: rightDragState.fromR, fromC: rightDragState.fromC,
       toR: rightDragState.lastR, toC: rightDragState.lastC,
-    } : null);
+    } : { type: 'circle', r: rightDragState.fromR, c: rightDragState.fromC });
   });
 
   document.addEventListener('mouseup', (e) => {
