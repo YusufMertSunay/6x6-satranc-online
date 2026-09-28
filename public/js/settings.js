@@ -10,8 +10,13 @@
 //      Ayarlar penceresinin içine taşındı. localStorage anahtarları (
 //      boardLightColor/boardDarkColor) ESKİSİYLE AYNI bırakıldı ki daha önce
 //      renk seçmiş kullanıcıların tercihi kaybolmasın.
-//   3) Tahtanın kenarındaki harf (a-f) / numara (1-6) etiketlerinin
-//      gösterilip gösterilmeyeceği (varsayılan: gösteriliyor).
+//   3) Tahtanın kenarındaki harf (a-f) VE numara (1-6) etiketlerinin AYRI
+//      AYRI gösterilip gösterilmeyeceği (kullanıcı isteği: sadece harfleri,
+//      sadece numaraları ya da ikisini birden kaldırabilmeli) -- varsayılan:
+//      ikisi de gösteriliyor. (İlk sürümde tek bir "koordinatları göster"
+//      anahtarı vardı -- kullanıcı isteğiyle ikiye ayrıldı; aşağıdaki
+//      migrateOldCombinedCoordsSetting o eski tercihi kaybetmeden yeni iki
+//      anahtara taşıyor.)
 //
 // Bunların HİÇBİRİ bir HESAP tercihi değil (i18n.js'teki dil tercihinin
 // aksine sunucuya hiç gönderilmiyor) -- sadece bu TARAYICIDA kalıcı bir
@@ -20,7 +25,7 @@
 // ÖNCE yükleniyor ki hem window.AppSettings game.js'in ihtiyaç duyduğu anda
 // (bkz. tryExecutePremove) zaten hazır olsun, hem de tahta rengi/koordinat
 // tercihi tahta hiç çizilmeden ÖNCE uygulanmış olsun (böylece varsayılan
-// renklerle kısa bir an görünüp sonra değişme "titremesi" olmaz).
+// renklerle/etiketlerle kısa bir an görünüp sonra değişme "titremesi" olmaz).
 (function () {
   const $ = (id) => document.getElementById(id);
 
@@ -84,29 +89,54 @@
     return { light: DEFAULT_LIGHT, dark: DEFAULT_DARK };
   }
 
-  // ---- 3) Tahta kenarındaki harf/numara etiketleri ----
-  const COORDS_HIDDEN_KEY = 'settings.hideBoardCoords';
+  // ---- 3) Tahta kenarındaki harf (a-f) / numara (1-6) etiketleri (AYRI AYRI) ----
+  const FILE_LABELS_HIDDEN_KEY = 'settings.hideBoardFileLabels';
+  const RANK_LABELS_HIDDEN_KEY = 'settings.hideBoardRankLabels';
+  // Bir önceki sürümde İKİSİ TEK bir anahtarla ('settings.hideBoardCoords')
+  // birlikte kontrol ediliyordu -- bu anahtarı hâlâ ayarlamış (harf/numarayı
+  // birlikte kapatmış) kullanıcıların tercihini kaybetmemek için, bir defalık
+  // bu göçü yapıp eski anahtarı siliyoruz.
+  const OLD_COMBINED_KEY = 'settings.hideBoardCoords';
+
+  function migrateOldCombinedCoordsSetting() {
+    try {
+      const old = localStorage.getItem(OLD_COMBINED_KEY);
+      if (old === '1') {
+        if (localStorage.getItem(FILE_LABELS_HIDDEN_KEY) === null) localStorage.setItem(FILE_LABELS_HIDDEN_KEY, '1');
+        if (localStorage.getItem(RANK_LABELS_HIDDEN_KEY) === null) localStorage.setItem(RANK_LABELS_HIDDEN_KEY, '1');
+      }
+      if (old !== null) localStorage.removeItem(OLD_COMBINED_KEY);
+    } catch { /* yok say */ }
+  }
 
   // Varsayılan: GÖSTERİLİYOR (kullanıcı isteği) -- bu yüzden "gizli" durumu
   // pozitif bir bayrakla ('1') saklıyoruz; anahtar hiç yoksa (varsayılan/
   // hiç dokunulmamış kullanıcı) gösterilmiş sayılır.
-  function getShowCoordinates() {
-    try {
-      return localStorage.getItem(COORDS_HIDDEN_KEY) !== '1';
-    } catch {
-      return true;
-    }
+  function getShowFileLabels() {
+    try { return localStorage.getItem(FILE_LABELS_HIDDEN_KEY) !== '1'; } catch { return true; }
+  }
+  function getShowRankLabels() {
+    try { return localStorage.getItem(RANK_LABELS_HIDDEN_KEY) !== '1'; } catch { return true; }
   }
 
-  function applyCoordinatesVisibility(show) {
-    document.documentElement.classList.toggle('hide-board-coords', !show);
+  function applyLabelVisibility(showFiles, showRanks) {
+    document.documentElement.classList.toggle('hide-board-file-labels', !showFiles);
+    document.documentElement.classList.toggle('hide-board-rank-labels', !showRanks);
   }
 
-  function setShowCoordinates(show) {
-    applyCoordinatesVisibility(show);
+  function setShowFileLabels(show) {
+    applyLabelVisibility(show, getShowRankLabels());
     try {
-      if (show) localStorage.removeItem(COORDS_HIDDEN_KEY);
-      else localStorage.setItem(COORDS_HIDDEN_KEY, '1');
+      if (show) localStorage.removeItem(FILE_LABELS_HIDDEN_KEY);
+      else localStorage.setItem(FILE_LABELS_HIDDEN_KEY, '1');
+    } catch { /* yok say */ }
+  }
+
+  function setShowRankLabels(show) {
+    applyLabelVisibility(getShowFileLabels(), show);
+    try {
+      if (show) localStorage.removeItem(RANK_LABELS_HIDDEN_KEY);
+      else localStorage.setItem(RANK_LABELS_HIDDEN_KEY, '1');
     } catch { /* yok say */ }
   }
 
@@ -115,9 +145,10 @@
   // (kullanılmayan bir CSS değişkeni/sınıf) ve tahtası olan sayfalarda
   // (game.html/analysis.html) mümkün olduğunca ERKEN uygulanmış olur.
   {
+    migrateOldCombinedCoordsSetting();
     const colors = getBoardColors();
     applyBoardColors(colors.light, colors.dark);
-    applyCoordinatesVisibility(getShowCoordinates());
+    applyLabelVisibility(getShowFileLabels(), getShowRankLabels());
   }
 
   function ensureUI() {
@@ -130,7 +161,8 @@
     const lightInput = $('lightColorInput');
     const darkInput = $('darkColorInput');
     const resetColorsBtn = $('resetBoardColorsBtn');
-    const coordsCheckbox = $('showCoordinatesCheckbox');
+    const fileLabelsCheckbox = $('showFileLabelsCheckbox');
+    const rankLabelsCheckbox = $('showRankLabelsCheckbox');
 
     function syncFieldsToCurrentValues() {
       if (promoSelect) promoSelect.value = getPremoveAutoPromotion();
@@ -139,7 +171,8 @@
         lightInput.value = colors.light;
         darkInput.value = colors.dark;
       }
-      if (coordsCheckbox) coordsCheckbox.checked = getShowCoordinates();
+      if (fileLabelsCheckbox) fileLabelsCheckbox.checked = getShowFileLabels();
+      if (rankLabelsCheckbox) rankLabelsCheckbox.checked = getShowRankLabels();
     }
 
     btn.addEventListener('click', () => {
@@ -173,9 +206,14 @@
       });
     }
 
-    if (coordsCheckbox) {
-      coordsCheckbox.addEventListener('change', () => {
-        setShowCoordinates(coordsCheckbox.checked);
+    if (fileLabelsCheckbox) {
+      fileLabelsCheckbox.addEventListener('change', () => {
+        setShowFileLabels(fileLabelsCheckbox.checked);
+      });
+    }
+    if (rankLabelsCheckbox) {
+      rankLabelsCheckbox.addEventListener('change', () => {
+        setShowRankLabels(rankLabelsCheckbox.checked);
       });
     }
 
@@ -194,7 +232,9 @@
     getBoardColors,
     setBoardColors,
     resetBoardColors,
-    getShowCoordinates,
-    setShowCoordinates,
+    getShowFileLabels,
+    setShowFileLabels,
+    getShowRankLabels,
+    setShowRankLabels,
   };
 })();

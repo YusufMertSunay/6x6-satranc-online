@@ -508,7 +508,8 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 /* Kullanıcı isteği: tahta kenarındaki harf/numara etiketleri Ayarlar'dan
    kapatılabilsin (varsayılan: açık) -- bkz. public/js/settings.js:
    applyCoordinatesVisibility. Bu sınıf <html> üzerine ekleniyor. */
-html.hide-board-coords .coord-label { display: none; }
+html.hide-board-file-labels .coord-label.coord-file { display: none; }
+html.hide-board-rank-labels .coord-label.coord-rank { display: none; }
 
 .settings-checkbox-row {
   display: flex;
