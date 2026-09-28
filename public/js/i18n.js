@@ -185,6 +185,16 @@
       'board.darkSquares': 'Koyu kareler',
       'board.resetColors': 'Varsayılana Dön',
 
+      // ---- Ayarlar penceresi (kullanıcı isteği: sağ üstteki dişli düğme) ----
+      'settings.title': 'Ayarlar',
+      'settings.premovePromotionLabel': 'Ön-hamlede otomatik terfi taşı',
+      'settings.premovePromotionHint': 'Bir ön-hamle (premove) terfiyle sonuçlanırsa, sıra sana geçtiğinde hamle otomatik olarak seçtiğin taşla oynanır. "Devre dışı" seçersen, eskisi gibi sana hangi taşa terfi etmek istediğin sorulur.',
+      'settings.premovePromotionQueen': 'Vezir',
+      'settings.premovePromotionRook': 'Kale',
+      'settings.premovePromotionBishop': 'Fil',
+      'settings.premovePromotionKnight': 'At',
+      'settings.premovePromotionOff': 'Devre dışı (her seferinde sor)',
+
       // ---- Oyun ekranı ----
       'status.loading': 'Yükleniyor...',
       'game.drawOfferedByOpponent': 'Rakibin beraberlik teklif etti.',
@@ -533,6 +543,16 @@
       'board.lightSquares': 'Light squares',
       'board.darkSquares': 'Dark squares',
       'board.resetColors': 'Reset to Default',
+
+      // ---- Settings panel ----
+      'settings.title': 'Settings',
+      'settings.premovePromotionLabel': 'Auto-promotion piece for premoves',
+      'settings.premovePromotionHint': 'If a premove results in a promotion, the move is played automatically with the piece you pick as soon as it\'s your turn. Choose "Disabled" to be asked which piece every time, like before.',
+      'settings.premovePromotionQueen': 'Queen',
+      'settings.premovePromotionRook': 'Rook',
+      'settings.premovePromotionBishop': 'Bishop',
+      'settings.premovePromotionKnight': 'Knight',
+      'settings.premovePromotionOff': 'Disabled (ask every time)',
 
       'status.loading': 'Loading...',
       'game.drawOfferedByOpponent': 'Your opponent has offered a draw.',

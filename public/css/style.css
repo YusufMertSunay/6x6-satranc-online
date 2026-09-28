@@ -87,6 +87,52 @@ header.topbar h1 .accent { color: var(--accent); }
   font-size: 14px;
 }
 
+/* Kullanıcı isteği: sağ üstte bir "Ayarlar" (dişli) düğmesi -- bkz.
+   public/js/settings.js. .topbar-right zaten flex+gap kullandığı için bu,
+   yanındaki motor aç/kapa, dil geçişi veya çıkış düğmelerini hiç ÜSTÜNE
+   BİNMEDEN/gizlemeden iter (dar ekranlarda da .topbar-right'ın flex-wrap
+   kuralı sayesinde alt satıra sarar, hiçbir zaman üst üste binmez). */
+.icon-btn {
+  background: var(--bg-panel-light);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.icon-btn:hover { background: #4a4642; }
+
+.settings-card { max-width: 420px; width: 100%; }
+.settings-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.settings-card-header h3 { margin: 0; }
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-row select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-light);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
 /* TR/EN dil geçiş düğmesi — bkz. public/js/i18n.js */
 .lang-switch {
   display: flex;

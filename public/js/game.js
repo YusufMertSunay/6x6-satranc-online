@@ -1345,6 +1345,18 @@
       await submitMove(pm.from, pm.to, null);
     } else {
       const options = matches.map(m => m.slice(4));
+      // Kullanıcı isteği (Ayarlar penceresi, bkz. public/js/settings.js):
+      // ön-hamle bir terfiyle sonuçlanıyorsa -- rakip hamlesini oynayıp
+      // otomatik olarak kuyruktaki ön-hamleyi tetiklediğimiz TAM da bu an --
+      // oyuncu terfi penceresinin karşısına aniden getirilip beklemek
+      // yerine, Ayarlar'da seçtiği taşa (varsayılan: vezir) OTOMATİK olarak
+      // terfi edilsin. "Devre dışı" seçiliyse (ya da Ayarlar hiç
+      // yüklenmediyse) eskisi gibi terfi penceresi açılıp soruluyor.
+      const autoChoice = window.AppSettings ? window.AppSettings.getPremoveAutoPromotion() : 'q';
+      if (autoChoice !== 'off' && options.includes(autoChoice)) {
+        await submitMove(pm.from, pm.to, autoChoice);
+        return;
+      }
       showPromotionModal(options, async (choice) => {
         await submitMove(pm.from, pm.to, choice);
       });

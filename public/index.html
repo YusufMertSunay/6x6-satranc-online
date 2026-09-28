@@ -19,6 +19,7 @@
     <h1 data-i18n-html="brand.titleHome">6x6 <span class="accent">Satranç</span> Online</h1>
   </div>
   <div class="topbar-right">
+    <button type="button" class="icon-btn" id="settingsBtn" title="Ayarlar" data-i18n-title="settings.title">⚙</button>
     <div class="lang-switch" id="langSwitch">
       <button type="button" data-lang="tr">TR</button>
       <button type="button" data-lang="en">EN</button>
@@ -29,6 +30,29 @@
     </div>
   </div>
 </header>
+
+<!-- Kullanıcı isteği: sağ üstteki dişli düğmeyle açılan Ayarlar penceresi --
+     bkz. public/js/settings.js. Şimdilik tek ayar: ön-hamle (premove) bir
+     terfiyle sonuçlandığında otomatik olarak hangi taşa terfi edileceği. -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="card settings-card">
+    <div class="settings-card-header">
+      <h3 data-i18n="settings.title">Ayarlar</h3>
+      <button class="secondary tiny" type="button" id="settingsCloseBtn" data-i18n="common.close">Kapat</button>
+    </div>
+    <div class="settings-row">
+      <label for="premovePromotionSelect" data-i18n="settings.premovePromotionLabel">Ön-hamlede otomatik terfi taşı</label>
+      <select id="premovePromotionSelect">
+        <option value="q" data-i18n="settings.premovePromotionQueen">Vezir</option>
+        <option value="r" data-i18n="settings.premovePromotionRook">Kale</option>
+        <option value="b" data-i18n="settings.premovePromotionBishop">Fil</option>
+        <option value="n" data-i18n="settings.premovePromotionKnight">At</option>
+        <option value="off" data-i18n="settings.premovePromotionOff">Devre dışı (her seferinde sor)</option>
+      </select>
+      <p class="hint-text" data-i18n="settings.premovePromotionHint">Bir ön-hamle (premove) terfiyle sonuçlanırsa, sıra sana geçtiğinde hamle otomatik olarak seçtiğin taşla oynanır. "Devre dışı" seçersen, eskisi gibi sana hangi taşa terfi etmek istediğin sorulur.</p>
+    </div>
+  </div>
+</div>
 
 <!-- Kullanıcı isteği: "Çıkış" düğmesine basınca doğrudan çıkış yapmak
      yerine, önce bir onay penceresi açılsın -- solda "Çıkışı İptal Et",
@@ -282,6 +306,7 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/settings.js"></script>
 <script src="/js/social-widget.js"></script>
 <script src="/js/app.js"></script>
 </body>
