@@ -480,26 +480,17 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 
 .board-column { display: flex; flex-direction: column; gap: 10px; }
 
-/* ---- Tahta renk ayarları (tercih tarayıcıda saklanır) ---- */
-.board-color-settings {
+/* ---- Tahta renk / koordinat ayarları (kullanıcı isteği: artık her zaman
+   görünen ayrı bir panel değil, Ayarlar penceresinin (bkz. #settingsModal,
+   public/js/settings.js) İÇİNDE -- tercih hâlâ sadece tarayıcıda saklanıyor). ---- */
+.bcs-row {
   display: flex;
   align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 14px;
-  background: var(--bg-panel);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
-  color: var(--text-dim);
 }
 
-.board-color-settings .bcs-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.board-color-settings input[type="color"] {
+.bcs-row input[type="color"] {
   width: 34px;
   height: 28px;
   padding: 2px;
@@ -509,9 +500,27 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
   cursor: pointer;
 }
 
-.board-color-settings button {
+.bcs-row button {
   padding: 5px 10px;
   font-size: 12px;
+}
+
+/* Kullanıcı isteği: tahta kenarındaki harf/numara etiketleri Ayarlar'dan
+   kapatılabilsin (varsayılan: açık) -- bkz. public/js/settings.js:
+   applyCoordinatesVisibility. Bu sınıf <html> üzerine ekleniyor. */
+html.hide-board-coords .coord-label { display: none; }
+
+.settings-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.settings-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .player-strip {

@@ -36,11 +36,13 @@
 </header>
 
 <!-- Kullanıcı isteği: sağ üstteki dişli düğmeyle açılan Ayarlar penceresi --
-     bkz. public/js/settings.js. Şimdilik tek ayar: ön-hamle (premove) bir
-     terfiyle sonuçlandığında otomatik olarak hangi taşa terfi edileceği
-     (bu sayfada -- serbest analiz tahtasında -- ön-hamle/premove olmadığı
-     için doğrudan bir etkisi yok, ama Ayarlar'a HER sayfadan erişilebilmesi
-     için tutarlılık amacıyla burada da gösteriliyor). -->
+     bkz. public/js/settings.js. Ön-hamle (premove) otomatik terfi ayarının
+     bu sayfada -- serbest analiz tahtasında -- doğrudan bir etkisi yok, ama
+     Ayarlar'a HER sayfadan erişilebilmesi için tutarlılık amacıyla burada da
+     gösteriliyor. Tahta renkleri VE tahta kenarındaki harf/numara
+     etiketlerinin gösterilip gösterilmeyeceği ise burada da GEÇERLİ (bu
+     sayfada da tahta var) -- eskiden tahtanın altında ayrı/her zaman görünen
+     bir panel olan tahta renkleri artık buraya taşındı. -->
 <div class="modal-overlay hidden" id="settingsModal">
   <div class="card settings-card">
     <div class="settings-card-header">
@@ -57,6 +59,22 @@
         <option value="off" data-i18n="settings.premovePromotionOff">Devre dışı (her seferinde sor)</option>
       </select>
       <p class="hint-text" data-i18n="settings.premovePromotionHint">Bir ön-hamle (premove) terfiyle sonuçlanırsa, sıra sana geçtiğinde hamle otomatik olarak seçtiğin taşla oynanır. "Devre dışı" seçersen, eskisi gibi sana hangi taşa terfi etmek istediğin sorulur.</p>
+    </div>
+    <div class="settings-row">
+      <div class="hint-text" data-i18n="settings.boardColorsLabel">Tahta renkleri</div>
+      <div class="bcs-row">
+        <label for="lightColorInput" data-i18n="board.lightSquares">Açık kareler</label>
+        <input type="color" id="lightColorInput" value="#ebecd0">
+        <label for="darkColorInput" data-i18n="board.darkSquares">Koyu kareler</label>
+        <input type="color" id="darkColorInput" value="#779556">
+        <button class="secondary tiny" type="button" id="resetBoardColorsBtn" data-i18n="board.resetColors">Varsayılana Dön</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <label class="settings-checkbox-row">
+        <input type="checkbox" id="showCoordinatesCheckbox" checked>
+        <span data-i18n="settings.showCoordinatesLabel">Tahta kenarında harf/numaraları göster</span>
+      </label>
     </div>
   </div>
 </div>
@@ -91,17 +109,6 @@
       <span class="clock" id="bottomClock">--:--</span>
     </div>
 
-    <div class="board-color-settings" id="boardColorSettings">
-      <div class="bcs-row">
-        <label for="lightColorInput" data-i18n="board.lightSquares">Açık kareler</label>
-        <input type="color" id="lightColorInput" value="#ebecd0">
-      </div>
-      <div class="bcs-row">
-        <label for="darkColorInput" data-i18n="board.darkSquares">Koyu kareler</label>
-        <input type="color" id="darkColorInput" value="#779556">
-      </div>
-      <button class="secondary" type="button" id="resetBoardColorsBtn" data-i18n="board.resetColors">Varsayılana Dön</button>
-    </div>
 
     <div class="action-row">
       <button class="secondary" id="navStartBtn" type="button" title="Başa dön" data-i18n="analysis.navStart" data-i18n-title="analysis.navStartTitle">|&lt; Başa</button>

@@ -194,6 +194,8 @@
       'settings.premovePromotionBishop': 'Fil',
       'settings.premovePromotionKnight': 'At',
       'settings.premovePromotionOff': 'Devre dışı (her seferinde sor)',
+      'settings.boardColorsLabel': 'Tahta renkleri',
+      'settings.showCoordinatesLabel': 'Tahta kenarında harf/numaraları göster',
 
       // ---- Oyun ekranı ----
       'status.loading': 'Yükleniyor...',
@@ -553,6 +555,8 @@
       'settings.premovePromotionBishop': 'Bishop',
       'settings.premovePromotionKnight': 'Knight',
       'settings.premovePromotionOff': 'Disabled (ask every time)',
+      'settings.boardColorsLabel': 'Board colors',
+      'settings.showCoordinatesLabel': 'Show file/rank labels on board edges',
 
       'status.loading': 'Loading...',
       'game.drawOfferedByOpponent': 'Your opponent has offered a draw.',
