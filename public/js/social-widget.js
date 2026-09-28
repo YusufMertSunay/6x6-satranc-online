@@ -578,6 +578,12 @@
       alert(I18N.t('social.friendRequestAcceptedNotice', { username: data.username }));
       refreshBadges();
       if (!$('socialFriendsModal').classList.contains('hidden')) openFriends();
+      // Kullanıcı isteği: teklifi gönderenin (biz), kabul eden kişinin
+      // profil penceresini o an açık tutuyor olması ihtimaline karşı --
+      // "Teklif Gönderildi" yazan düğme sayfa yenilenmeden güncellensin.
+      if (window.AppUI && window.AppUI.refreshOpenProfileIfMatches) {
+        window.AppUI.refreshOpenProfileIfMatches(data.username);
+      }
     });
     sse.onerror = () => { /* tarayıcı otomatik olarak yeniden bağlanmayı dener */ };
   }

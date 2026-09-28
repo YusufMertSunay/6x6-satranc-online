@@ -505,6 +505,24 @@
     profileUsername = null;
   }
 
+  // Kullanıcı isteği: A, B'ye arkadaşlık teklifi gönderip B'nin profil
+  // penceresini açık tutarken, B tekliği kabul ederse A'nın ekranındaki
+  // "Teklif Gönderildi" düğmesi sayfa yenilenmeden güncellensin. Bu fonksiyon
+  // social-widget.js'teki 'friend_request_accepted' SSE dinleyicisi
+  // tarafından çağrılır (bkz. window.AppUI export'u, dosyanın sonu).
+  async function refreshOpenProfileIfMatches(username) {
+    if (!username) return;
+    if ($('playerProfileModal').classList.contains('hidden')) return;
+    if (!profileUsername || profileUsername.toLowerCase() !== username.toLowerCase()) return;
+    try {
+      const info = await api('GET', '/api/player-info?username=' + encodeURIComponent(username));
+      renderProfileHeader(info);
+    } catch {
+      // Profil o anda başka bir sebeple okunamıyorsa sessizce vazgeçiyoruz --
+      // zaten sosyal widget'ın kendi bildirim/alert mekanizması ayrı çalışıyor.
+    }
+  }
+
   $('profileCloseBtn').addEventListener('click', closePlayerProfile);
   // Karartılmış arka plana (overlay'in kendisine) tıklanınca da kapansın --
   // ama pencerenin İÇİNE (kart) tıklanınca kapanmasın diye hedefi kontrol
@@ -1102,4 +1120,8 @@
       $('authView').classList.remove('hidden');
     }
   })();
+
+  // Diğer dosyaların (bkz. social-widget.js) çağırabilmesi için -- aynı
+  // window.ChatUI / window.SocialWidget / window.I18N deseni.
+  window.AppUI = { refreshOpenProfileIfMatches };
 })();
