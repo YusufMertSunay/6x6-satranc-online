@@ -585,6 +585,18 @@
         window.AppUI.refreshOpenProfileIfMatches(data.username);
       }
     });
+    sse.addEventListener('friend_request_declined', (e) => {
+      const data = JSON.parse(e.data);
+      alert(I18N.t('social.friendRequestDeclinedNotice', { username: data.username }));
+      refreshBadges();
+      if (!$('socialFriendsModal').classList.contains('hidden')) openFriends();
+      // Kullanıcı isteği: reddedilen teklifi gönderenin ekranındaki "Teklif
+      // Gönderildi" düğmesi de -- ilgili profil penceresi açıksa -- sayfa
+      // yenilenmeden güncellensin (kabul durumundaki ile aynı mantık).
+      if (window.AppUI && window.AppUI.refreshOpenProfileIfMatches) {
+        window.AppUI.refreshOpenProfileIfMatches(data.username);
+      }
+    });
     sse.onerror = () => { /* tarayıcı otomatik olarak yeniden bağlanmayı dener */ };
   }
 
