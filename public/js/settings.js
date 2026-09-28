@@ -4,10 +4,13 @@
 //   1) Bir ön-hamle (premove) bir terfiyle sonuçlandığında hangi taşa
 //      OTOMATİK terfi edileceği (varsayılan: vezir), ya da bu otomatikliğin
 //      tamamen kapatılıp eskisi gibi her seferinde sorulması ("devre dışı").
-//   2) Tahta renkleri (açık/koyu kareler) -- ESKİDEN game.html/analysis.html'de
-//      tahtanın hemen altında ayrı, HER ZAMAN görünen bir panel olarak
-//      duruyordu (#boardColorSettings); kullanıcı isteğiyle artık buraya,
-//      Ayarlar penceresinin içine taşındı. localStorage anahtarları (
+//   2) Tahta renkleri (açık/koyu kareler) -- kullanıcı isteğiyle HEM Ayarlar
+//      penceresinin içinde HEM DE eskisi gibi tahtanın hemen altında her
+//      zaman görünen bir panelde (#boardColorSettings) aynı anda ayarlanabiliyor.
+//      İkisi de aynı ortak CSS sınıflarını (.board-light-input/.board-dark-input/
+//      .board-reset-btn) paylaşıyor -- bkz. aşağıdaki allLightInputs/
+//      allDarkInputs/allResetButtons/syncColorInputsUI: hangisinden değişirse
+//      değişsin, diğeri de anında güncellenir. localStorage anahtarları (
 //      boardLightColor/boardDarkColor) ESKİSİYLE AYNI bırakıldı ki daha önce
 //      renk seçmiş kullanıcıların tercihi kaybolmasın.
 //   3) Tahtanın kenarındaki harf (a-f) VE numara (1-6) etiketlerinin AYRI
@@ -151,26 +154,59 @@
     applyLabelVisibility(getShowFileLabels(), getShowRankLabels());
   }
 
+  // ---- Tahta renk girdileri: HEM Ayarlar modalinde HEM DE (kullanıcı
+  // isteği) tahtanın altındaki her-zaman-görünen panelde -- ikisi de aynı
+  // ortak sınıfları taşıyor (bkz. game.html/analysis.html), burada TEK
+  // seferde ikisi birden bulunup senkron tutuluyor. Böylece hangisinden
+  // değiştirilirse değiştirilsin, diğeri de anında güncel değeri gösterir.
+  function allLightInputs() { return document.querySelectorAll('.board-light-input'); }
+  function allDarkInputs() { return document.querySelectorAll('.board-dark-input'); }
+  function allResetButtons() { return document.querySelectorAll('.board-reset-btn'); }
+
+  function syncColorInputsUI() {
+    const colors = getBoardColors();
+    allLightInputs().forEach((el) => { el.value = colors.light; });
+    allDarkInputs().forEach((el) => { el.value = colors.dark; });
+  }
+
   function ensureUI() {
     const btn = $('settingsBtn');
     const modal = $('settingsModal');
+
+    // Tahta renk girdileri/sıfırla düğmeleri, gerek modalde gerek tahtanın
+    // altındaki panelde olsun, dişli/modal bu sayfada hiç yoksa (ör. daha
+    // önce hiç eklenmemiş bir sayfa) bile bağımsız çalışabilsin diye bu
+    // kısım aşağıdaki erken çıkıştan (return) ÖNCE, ayrı olarak bağlanıyor.
+    allLightInputs().forEach((input) => {
+      input.addEventListener('input', () => {
+        setBoardColors(input.value, getBoardColors().dark);
+        syncColorInputsUI();
+      });
+    });
+    allDarkInputs().forEach((input) => {
+      input.addEventListener('input', () => {
+        setBoardColors(getBoardColors().light, input.value);
+        syncColorInputsUI();
+      });
+    });
+    allResetButtons().forEach((button) => {
+      button.addEventListener('click', () => {
+        resetBoardColors();
+        syncColorInputsUI();
+      });
+    });
+    syncColorInputsUI();
+
     if (!btn || !modal) return; // bu sayfada Ayarlar düğmesi yoksa sessizce çık
 
     const closeBtn = $('settingsCloseBtn');
     const promoSelect = $('premovePromotionSelect');
-    const lightInput = $('lightColorInput');
-    const darkInput = $('darkColorInput');
-    const resetColorsBtn = $('resetBoardColorsBtn');
     const fileLabelsCheckbox = $('showFileLabelsCheckbox');
     const rankLabelsCheckbox = $('showRankLabelsCheckbox');
 
     function syncFieldsToCurrentValues() {
       if (promoSelect) promoSelect.value = getPremoveAutoPromotion();
-      if (lightInput && darkInput) {
-        const colors = getBoardColors();
-        lightInput.value = colors.light;
-        darkInput.value = colors.dark;
-      }
+      syncColorInputsUI();
       if (fileLabelsCheckbox) fileLabelsCheckbox.checked = getShowFileLabels();
       if (rankLabelsCheckbox) rankLabelsCheckbox.checked = getShowRankLabels();
     }
@@ -190,19 +226,6 @@
     if (promoSelect) {
       promoSelect.addEventListener('change', () => {
         setPremoveAutoPromotion(promoSelect.value);
-      });
-    }
-
-    if (lightInput && darkInput) {
-      lightInput.addEventListener('input', () => setBoardColors(lightInput.value, darkInput.value));
-      darkInput.addEventListener('input', () => setBoardColors(lightInput.value, darkInput.value));
-    }
-
-    if (resetColorsBtn) {
-      resetColorsBtn.addEventListener('click', () => {
-        const d = resetBoardColors();
-        if (lightInput) lightInput.value = d.light;
-        if (darkInput) darkInput.value = d.dark;
       });
     }
 

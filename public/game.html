@@ -57,10 +57,10 @@
       <div class="hint-text" data-i18n="settings.boardColorsLabel">Tahta renkleri</div>
       <div class="bcs-row">
         <label for="lightColorInput" data-i18n="board.lightSquares">Açık kareler</label>
-        <input type="color" id="lightColorInput" value="#ebecd0">
+        <input type="color" id="lightColorInput" class="board-light-input" value="#ebecd0">
         <label for="darkColorInput" data-i18n="board.darkSquares">Koyu kareler</label>
-        <input type="color" id="darkColorInput" value="#779556">
-        <button class="secondary tiny" type="button" id="resetBoardColorsBtn" data-i18n="board.resetColors">Varsayılana Dön</button>
+        <input type="color" id="darkColorInput" class="board-dark-input" value="#779556">
+        <button class="secondary tiny board-reset-btn" type="button" id="resetBoardColorsBtn" data-i18n="board.resetColors">Varsayılana Dön</button>
       </div>
     </div>
     <div class="settings-row">
@@ -97,6 +97,19 @@
         <span class="rating player-rating" id="bottomRating"></span>
       </span>
       <span class="clock" id="bottomClock">--:--</span>
+    </div>
+
+    <!-- Kullanıcı isteği: tahta rengi HEM Ayarlar penceresinden HEM DE
+         eskisi gibi tahtanın hemen altındaki bu panelden ayarlanabilsin --
+         bkz. public/js/settings.js: syncColorInputsUI ikisini senkron tutar. -->
+    <div class="board-color-settings" id="boardColorSettings">
+      <div class="bcs-row">
+        <label for="lightColorInputInline" data-i18n="board.lightSquares">Açık kareler</label>
+        <input type="color" id="lightColorInputInline" class="board-light-input" value="#ebecd0">
+        <label for="darkColorInputInline" data-i18n="board.darkSquares">Koyu kareler</label>
+        <input type="color" id="darkColorInputInline" class="board-dark-input" value="#779556">
+        <button class="secondary tiny board-reset-btn" type="button" id="resetBoardColorsBtnInline" data-i18n="board.resetColors">Varsayılana Dön</button>
+      </div>
     </div>
   </div>
 

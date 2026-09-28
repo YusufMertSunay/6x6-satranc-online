@@ -480,9 +480,23 @@ button.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 
 .board-column { display: flex; flex-direction: column; gap: 10px; }
 
-/* ---- Tahta renk / koordinat ayarları (kullanıcı isteği: artık her zaman
-   görünen ayrı bir panel değil, Ayarlar penceresinin (bkz. #settingsModal,
-   public/js/settings.js) İÇİNDE -- tercih hâlâ sadece tarayıcıda saklanıyor). ---- */
+/* ---- Tahta renk ayarları -- kullanıcı isteği: HEM Ayarlar penceresinin
+   (bkz. #settingsModal, public/js/settings.js) İÇİNDE, HEM DE eskisi gibi
+   tahtanın altında her zaman görünen bir panelde ayarlanabilsin -- ikisi de
+   AYNI localStorage tercihini okur/yazar ve settings.js bu ikisini her
+   zaman birbiriyle senkron tutar (bkz. settings.js: syncColorInputsUI). Bu
+   yüzden hem modaldeki hem panelin içindeki renk girdileri/sıfırla düğmesi
+   ORTAK sınıfları (.board-light-input/.board-dark-input/.board-reset-btn)
+   paylaşıyor -- id'leri farklı (aynı sayfada iki input aynı id'yi taşıyamaz)
+   ama davranışları birebir aynı. */
+.board-color-settings {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 .bcs-row {
   display: flex;
   align-items: center;
